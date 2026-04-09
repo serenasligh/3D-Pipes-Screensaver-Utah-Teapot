@@ -1,0 +1,219 @@
+// Combined resource file for sspipes.scr
+// All IDs hardcoded to avoid complex header chain issues with windres.
+
+#include <windows.h>
+#include "scrnsave.h"
+
+// IDs from scrnsave.h:
+//   IDS_DESCRIPTION = 1
+//   DLG_SCRNSAVECONFIGURE = 2003
+//   ID_APP = 100
+
+// IDs from sscommon.h:
+#define IDS_COPYRIGHT           9001
+#define IDS_GENNAME             9003
+#define IDS_INIFILE             9006
+#define IDS_WARNING             9014
+#define IDS_ERROR               9015
+#define IDS_BITMAP_SIZE         9016
+#define IDS_BITMAP_INVALID      9017
+#define IDS_SELECT_ANOTHER_BITMAP 9018
+#define IDS_START_FAILED        9019
+#define IDS_TEXTUREFILTER       9021
+#define IDS_TEXTUREDIALOGTITLE  9022
+#define IDS_BMP                 9023
+#define IDS_DOTBMP              9024
+#define IDS_STARDOTBMP          9025
+#define IDS_RGB                 9030
+#define IDS_DOTRGB              9031
+#define IDS_STARDOTRGB          9032
+#define IDS_TEXTURE             9126
+#define IDS_TEXTURE_FILE_OFFSET 9127
+#define IDS_SIZE                9129
+#define IDS_TESSELATION         9130
+
+// IDs from dialog.h:
+#define IDS_SAVERNAME           1002
+#define IDS_JOINTTYPE           1008
+#define IDS_SURFSTYLE           1009
+#define IDS_TEXQUAL             1010
+#define IDS_FLEX                1020
+#define IDS_MULTIPIPES          1021
+#define IDS_TEXTURE_COUNT       1029
+#define IDS_TEXTURE0            1030
+#define IDS_TEXTURE1            1031
+#define IDS_TEXTURE2            1032
+#define IDS_TEXTURE3            1033
+#define IDS_TEXTURE4            1034
+#define IDS_TEXTURE5            1035
+#define IDS_TEXTURE6            1036
+#define IDS_TEXTURE7            1037
+#define IDS_TEXOFFSET0          1050
+#define IDS_TEXOFFSET1          1051
+#define IDS_TEXOFFSET2          1052
+#define IDS_TEXOFFSET3          1053
+#define IDS_TEXOFFSET4          1054
+#define IDS_TEXOFFSET5          1055
+#define IDS_TEXOFFSET6          1056
+#define IDS_TEXOFFSET7          1057
+#define IDS_JOINT_ELBOW         1100
+#define IDS_JOINT_BALL          1101
+#define IDS_JOINT_MIXED         1102
+#define IDS_JOINT_CYCLE         1103
+
+#define DLG_SETUP_TESSEL        2001
+#define DLG_SETUP_TEXTURE       2002
+#define IDC_STATIC_TESS_GRP     2006
+#define IDC_STATIC_TEXQUAL_GRP  2007
+#define IDC_RADIO_SINGLE_PIPE   3000
+#define IDC_RADIO_MULTIPLE_PIPES 3001
+#define IDC_RADIO_NORMAL        3100
+#define IDC_RADIO_FLEX          3101
+#define IDC_STATIC_JOINTTYPE    2106
+#define DLG_COMBO_JOINTTYPE     2200
+#define IDC_RADIO_SOLID         2111
+#define IDC_RADIO_TEX           2112
+#define IDC_RADIO_TEXQUAL_DEFAULT 2121
+#define IDC_RADIO_TEXQUAL_HIGH  2122
+#define IDC_STATIC_TESS_MIN     2004
+#define IDC_STATIC_TESS_MAX     2005
+
+#define IDB_DEFTEX              99
+
+// -----------------------------------------------------------------------
+// Application icon
+// -----------------------------------------------------------------------
+
+ID_APP ICON "ssopengl.ico"
+
+// -----------------------------------------------------------------------
+// Common string resources
+// -----------------------------------------------------------------------
+
+STRINGTABLE PRELOAD
+BEGIN
+    IDS_WARNING             "Warning"
+    IDS_ERROR               "Error"
+    IDS_START_FAILED        "Screen saver failed to start."
+    IDS_BITMAP_SIZE         "The texture must not be larger than %ld by %ld pixels."
+    IDS_BITMAP_INVALID      "The texture you selected is not valid."
+    IDS_SELECT_ANOTHER_BITMAP  "Please select another texture. %s is not valid."
+    IDS_TEXTUREFILTER       "Texture files (*.bmp)"
+    IDS_TEXTUREDIALOGTITLE  "Choose Texture File"
+    IDS_BMP                 "BMP"
+    IDS_DOTBMP              ".BMP"
+    IDS_STARDOTBMP          "*.BMP"
+    IDS_RGB                 "RGB"
+    IDS_DOTRGB              ".RGB"
+    IDS_STARDOTRGB          "*.RGB"
+    IDS_COPYRIGHT           "Copyright (c) 1994 Microsoft Corporation"
+    IDS_GENNAME             "ScreenSaver"
+    IDS_INIFILE             "control.ini"
+    IDS_TEXTURE             "Texture"
+    IDS_TEXTURE_FILE_OFFSET "TextureFileOffset"
+    IDS_SIZE                "Size"
+    IDS_TESSELATION         "Tesselation"
+END
+
+// -----------------------------------------------------------------------
+// Screensaver description (IDS_DESCRIPTION = 1, from scrnsave.h)
+// -----------------------------------------------------------------------
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_DESCRIPTION         "3D Pipes (OpenGL)"
+END
+
+// -----------------------------------------------------------------------
+// Pipe-specific string resources
+// -----------------------------------------------------------------------
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_JOINTTYPE           "JointType"
+    IDS_SURFSTYLE           "SurfStyle"
+    IDS_TEXQUAL             "TextureQuality"
+    IDS_FLEX                "Flex"
+    IDS_MULTIPIPES          "MultiPipes"
+END
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_TEXTURE_COUNT       "TextureCount"
+    IDS_TEXTURE0            "Texture0"
+    IDS_TEXTURE1            "Texture1"
+    IDS_TEXTURE2            "Texture2"
+    IDS_TEXTURE3            "Texture3"
+    IDS_TEXTURE4            "Texture4"
+    IDS_TEXTURE5            "Texture5"
+    IDS_TEXTURE6            "Texture6"
+    IDS_TEXTURE7            "Texture7"
+END
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_TEXOFFSET0          "TexOffset0"
+    IDS_TEXOFFSET1          "TexOffset1"
+    IDS_TEXOFFSET2          "TexOffset2"
+    IDS_TEXOFFSET3          "TexOffset3"
+    IDS_TEXOFFSET4          "TexOffset4"
+    IDS_TEXOFFSET5          "TexOffset5"
+    IDS_TEXOFFSET6          "TexOffset6"
+    IDS_TEXOFFSET7          "TexOffset7"
+END
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_JOINT_ELBOW         "Elbow"
+    IDS_JOINT_BALL          "Ball"
+    IDS_JOINT_MIXED         "Mixed"
+    IDS_JOINT_CYCLE         "Cycle"
+END
+
+STRINGTABLE PRELOAD DISCARDABLE
+BEGIN
+    IDS_SAVERNAME           "Screen Saver.3DPipes"
+END
+
+// -----------------------------------------------------------------------
+// Default texture bitmap embedded as a resource
+// -----------------------------------------------------------------------
+
+IDB_DEFTEX   100   DISCARDABLE   "STRIPE.BMP"
+
+// -----------------------------------------------------------------------
+// Setup dialog
+// -----------------------------------------------------------------------
+
+DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 111
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "3D Pipes Setup"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,275,5,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,275,25,50,14,WS_GROUP
+    GROUPBOX        "Pipes",-1,5,0,110,50
+    CONTROL         "&Single",IDC_RADIO_SINGLE_PIPE,"Button",
+                    BS_AUTORADIOBUTTON,15,15,35,10
+    CONTROL         "&Multiple",IDC_RADIO_MULTIPLE_PIPES,"Button",
+                    BS_AUTORADIOBUTTON,15,30,40,10
+    GROUPBOX        "Pipe Style",-1,120,0,150,50
+    CONTROL         "&Traditional",IDC_RADIO_NORMAL,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,130,15,55,10
+    LTEXT           "&Joint Type:",IDC_STATIC_JOINTTYPE,190,6,35,8
+    COMBOBOX        DLG_COMBO_JOINTTYPE,190,15,65,50,CBS_DROPDOWNLIST |
+                    WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    CONTROL         "&Flex",IDC_RADIO_FLEX,"Button",BS_AUTORADIOBUTTON |
+                    WS_GROUP | WS_TABSTOP,130,30,35,10
+    GROUPBOX        "&Resolution",IDC_STATIC_TESS_GRP,5,55,110,50
+    LTEXT           "Min",IDC_STATIC_TESS_MIN,15,70,30,7
+    RTEXT           "Max",IDC_STATIC_TESS_MAX,85,70,20,7
+    CONTROL         "Slider1",DLG_SETUP_TESSEL,"msctls_trackbar32",
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,80,90,15
+    GROUPBOX        "Surface Style",-1,120,55,150,50,WS_GROUP
+    CONTROL         "Soli&d",IDC_RADIO_SOLID,"Button",BS_AUTORADIOBUTTON |
+                    WS_GROUP | WS_TABSTOP,130,70,35,13
+    CONTROL         "Te&xtured",IDC_RADIO_TEX,"Button",BS_AUTORADIOBUTTON |
+                    WS_GROUP | WS_TABSTOP,130,85,48,14
+    PUSHBUTTON      "&Choose Texture...",DLG_SETUP_TEXTURE,184,85,66,14
+END
