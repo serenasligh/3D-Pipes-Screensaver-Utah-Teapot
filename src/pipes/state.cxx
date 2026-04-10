@@ -45,6 +45,7 @@ STATE::STATE( BOOL bFlexMode, BOOL bMultiPipes )
 {
     // various state values
     resetStatus = RESET_STARTUP_BIT;
+    bDissolvingActive = FALSE;
 
     // Put initial hglrc in drawThreads[0]
     // This RC is also used for dlists and texture objects that are shared
@@ -653,11 +654,21 @@ STATE::Clear()
 *
 \**************************************************************************/
 
-void 
+void
 STATE::DrawValidate()
-{    
+{
     if( ! resetStatus )
         return;
+
+    // Intercept normal resets to run a multi-frame dissolve instead of
+    // clearing the screen instantly.  Resize and startup resets still run
+    // synchronously so the geometry change takes effect immediately.
+    if( (resetStatus & RESET_NORMAL_BIT) && !(resetStatus & RESET_RESIZE_BIT) ) {
+        ddClear.StartClear( view.winSize.width, view.winSize.height );
+        bDissolvingActive = TRUE;
+        resetStatus &= ~RESET_NORMAL_BIT;  // Clear() will use fast path now
+        return;  // don't FrameReset yet — dissolve runs in Draw()
+    }
 
     FrameReset();
 }
@@ -679,19 +690,25 @@ STATE::Draw(void *data)
     int nKilledThreads = 0;
     BOOL bChooseNewLead = FALSE;
 
-    // Speed control:
-    //   iPipeSpeed 1-4  → draw only every (6-speed) frames (slow)
-    //   iPipeSpeed 5    → draw once per frame (default)
-    //   iPipeSpeed 6-10 → draw (speed-4) segments per thread per frame (fast)
-    {
-        static int sFrameSkip = 0;
-        if( iPipeSpeed < 5 ) {
-            int interval = 6 - iPipeSpeed; // 5,4,3,2,1 for speeds 1,2,3,4
-            if( ++sFrameSkip < interval )
-                return;
-            sFrameSkip = 0;
+    // Multi-frame dissolve: animate the transition over ~30 frames before
+    // starting the next batch of pipes.
+    if( bDissolvingActive ) {
+        BOOL done = ddClear.ContinueClear();
+        if( done ) {
+            bDissolvingActive = FALSE;
+            FrameReset();  // now start the new frame of pipes
         }
+        return;
     }
+
+    // Speed control: float accumulator gives smooth sub-frame speeds.
+    // iPipeSpeed 1-100, default 50 → 1 segment/frame (same as original speed 5).
+    static float sAccum = 0.0f;
+    sAccum += iPipeSpeed / 50.0f;
+    int segsReady = (int)sAccum;
+    sAccum -= (float)segsReady;
+    if( segsReady < 1 )
+        return;  // not enough accumulated for even 1 segment this frame
 
     // Validate the draw state
 
@@ -708,7 +725,7 @@ STATE::Draw(void *data)
                 // Reaching pipe saturation - kill this pipe thread
 
                 if( (drawScheme == FRAME_SCHEME_CHASE) &&
-                    (pThread->pPipe == pLeadPipe) ) 
+                    (pThread->pPipe == pLeadPipe) )
                     bChooseNewLead = TRUE;
 
                 pThread->KillPipe();
@@ -741,16 +758,13 @@ STATE::Draw(void *data)
         ChooseNewLeadPipe();
     }
 
-    // Draw each pipe — call DrawPipe() extra times for faster speeds (6-10)
-    {
-        int segsPerThread = (iPipeSpeed > 5) ? (iPipeSpeed - 4) : 1;
-        for( i = 0, pThread = drawThreads; i < nDrawThreads; i++, pThread++ ) {
-            for( int s = 0; s < segsPerThread; s++ )
-                pThread->DrawPipe();
+    // Draw each pipe segsReady times (accumulator-based smooth speed control)
+    for( i = 0, pThread = drawThreads; i < nDrawThreads; i++, pThread++ ) {
+        for( int s = 0; s < segsReady; s++ )
+            pThread->DrawPipe();
 #ifdef DO_TIMING
-            pipeCount++;
+        pipeCount++;
 #endif
-        }
     }
 
     glFlush();

@@ -26,10 +26,11 @@ extern int gnTextures;
 
 extern BOOL  bFlexMode;
 extern BOOL  bMultiPipes;
+extern BOOL  bTeapotEnabled;  // TRUE = teapots can appear; FALSE = never
 
 // Teapot frequency: 1 = every joint, 2000 = very rare; default 1000
 extern int   iTeapotOdds;
-// Pipe speed: 1 = slowest, 10 = fastest; default 5
+// Pipe speed: 1 = slowest, 100 = fastest; default 50 (= 1 segment/frame)
 extern int   iPipeSpeed;
 
 extern void getIniSettings(void);
@@ -53,6 +54,9 @@ enum {
 #define IDS_MULTIPIPES          1021
 #define IDS_TEAPOTODDS          1022
 #define IDS_PIPESPEED           1023
+#define IDS_TEAPOTENABLED       1024
+
+#define IDC_CHECK_TEAPOT        3200
 
 // should get rid of OFFSET...
 #define IDS_TEXTURE_COUNT       1029

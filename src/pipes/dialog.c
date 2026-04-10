@@ -28,8 +28,9 @@
 
 BOOL bFlexMode;
 BOOL bMultiPipes;
+BOOL bTeapotEnabled = TRUE;  // TRUE = teapots can appear; FALSE = never
 int  iTeapotOdds = 1000;  // 1/N chance per joint; 1=always, 2000=very rare
-int  iPipeSpeed  = 5;     // 1=slowest ... 10=fastest
+int  iPipeSpeed  = 50;    // 1=slowest ... 100=fastest; 50=default (1 seg/frame)
 
 // ulJointType controls the style of the elbows.
 
@@ -96,11 +97,13 @@ getIniSettings()
 
         bMultiPipes = ss_GetRegistryInt( IDS_MULTIPIPES, 0 );
 
+        bTeapotEnabled = ss_GetRegistryInt( IDS_TEAPOTENABLED, 1 );
+
         iTeapotOdds = ss_GetRegistryInt( IDS_TEAPOTODDS, 1000 );
         SS_CLAMP_TO_RANGE2( iTeapotOdds, 1, 2000 );
 
-        iPipeSpeed = ss_GetRegistryInt( IDS_PIPESPEED, 5 );
-        SS_CLAMP_TO_RANGE2( iPipeSpeed, 1, 10 );
+        iPipeSpeed = ss_GetRegistryInt( IDS_PIPESPEED, 50 );
+        SS_CLAMP_TO_RANGE2( iPipeSpeed, 1, 100 );
 
         // Get any textures
 
@@ -152,6 +155,7 @@ static void saveIniSettings(HWND hDlg)
                     ss_GetTrackbarPos(hDlg, DLG_SETUP_TESSEL) );
         ss_WriteRegistryInt( IDS_FLEX, bFlexMode );
         ss_WriteRegistryInt( IDS_MULTIPIPES, bMultiPipes );
+        ss_WriteRegistryInt( IDS_TEAPOTENABLED, bTeapotEnabled );
         ss_WriteRegistryInt( IDS_TEAPOTODDS,
                     ss_GetTrackbarPos(hDlg, IDC_SLIDER_TEAPOT_ODDS) );
         ss_WriteRegistryInt( IDS_PIPESPEED,
@@ -191,7 +195,7 @@ setupDialogControls(HWND hDlg)
 
     ss_SetupTrackbar( hDlg, IDC_SLIDER_TEAPOT_ODDS, 1, 2000, 1, 100,
                       iTeapotOdds );
-    ss_SetupTrackbar( hDlg, IDC_SLIDER_SPEED, 1, 10, 1, 1,
+    ss_SetupTrackbar( hDlg, IDC_SLIDER_SPEED, 1, 100, 1, 5,
                       iPipeSpeed );
 
     // setup jointType combo box
@@ -202,8 +206,10 @@ setupDialogControls(HWND hDlg)
         SendDlgItemMessage(hDlg, DLG_COMBO_JOINTTYPE, CB_ADDSTRING, 0,
                            (LPARAM) szStr);
     }
-    SendDlgItemMessage(hDlg, DLG_COMBO_JOINTTYPE, CB_SETCURSEL, 
+    SendDlgItemMessage(hDlg, DLG_COMBO_JOINTTYPE, CB_SETCURSEL,
                        ulJointType, 0);
+
+    CheckDlgButton( hDlg, IDC_CHECK_TEAPOT, bTeapotEnabled ? BST_CHECKED : BST_UNCHECKED );
 
     updateDialogControls( hDlg );
 }
@@ -300,6 +306,10 @@ BOOL ScreenSaverConfigureDialog(HWND hDlg, UINT message,
                     break;
                 case IDC_RADIO_MULTIPLE_PIPES:
                     bMultiPipes = TRUE;
+                    break;
+
+                case IDC_CHECK_TEAPOT:
+                    bTeapotEnabled = (IsDlgButtonChecked(hDlg, IDC_CHECK_TEAPOT) == BST_CHECKED);
                     break;
 
                 case DLG_SETUP_TEXTURE:

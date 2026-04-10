@@ -126,6 +126,13 @@ SS_DIGITAL_DISSOLVE_CLEAR()
     rectBuf = NULL;
     rectBufSize = 0;
     rectSize = SS_CLEAR_BASE_SIZE;
+    orderBuf = NULL;
+    orderBufSize = 0;
+    dissolveCount = 0;
+    dissolveTotal = 0;
+    dissolveStep = 0;
+    dissolveXdim = 0;
+    dissolveSize = 0;
 }
 
 /******************************Public*Routine******************************\
@@ -139,6 +146,8 @@ SS_DIGITAL_DISSOLVE_CLEAR::
 {
     if( rectBuf )
         LocalFree( rectBuf );
+    if( orderBuf )
+        LocalFree( orderBuf );
 }
 
 /******************************Public*Routine******************************\
@@ -320,6 +329,115 @@ ValidateBufSize( int nRects )
         rectBufSize = nRects;
     }
     return TRUE;
+}
+
+/******************************Public*Routine******************************\
+* ValidateOrderBufSize
+*
+\**************************************************************************/
+
+BOOL SS_DIGITAL_DISSOLVE_CLEAR::
+ValidateOrderBufSize( int nRects )
+{
+    if( nRects > orderBufSize ) {
+        int *r = (int *) LocalAlloc( LMEM_FIXED, sizeof(int) * nRects );
+        if( !r )
+            return FALSE;
+        if( orderBuf )
+            LocalFree( orderBuf );
+        orderBuf = r;
+        orderBufSize = nRects;
+    }
+    return TRUE;
+}
+
+/******************************Public*Routine******************************\
+* StartClear
+*
+* Initialise a multi-frame digital dissolve.  Call ContinueClear() each
+* frame until it returns TRUE to animate the transition over ~30 frames.
+*
+* In double-buffered mode each ContinueClear() call re-clears ALL
+* previously-cleared rectangles (so both back buffers converge) and then
+* adds one step's worth of new rectangles.
+*
+\**************************************************************************/
+
+void SS_DIGITAL_DISSOLVE_CLEAR::
+StartClear( int width, int height )
+{
+    int nRects = RectangleCount( width, height, rectSize );
+    if( nRects <= 0 )
+        return;
+    if( !ValidateOrderBufSize( nRects ) )
+        return;
+
+    dissolveXdim = SS_ROUND_UP( (float)width  / (float)rectSize );
+    dissolveSize = rectSize;
+    dissolveTotal = nRects;
+    dissolveCount = 0;
+    // target ~30 frames for the full dissolve
+    dissolveStep = (nRects + 29) / 30;
+    if( dissolveStep < 1 ) dissolveStep = 1;
+
+    // Fill order array with 0..nRects-1, then Fisher-Yates shuffle
+    for( int i = 0; i < nRects; i++ )
+        orderBuf[i] = i;
+    for( int i = nRects - 1; i > 0; i-- ) {
+        int j = ss_iRand( i + 1 );
+        int tmp = orderBuf[i];
+        orderBuf[i] = orderBuf[j];
+        orderBuf[j] = tmp;
+    }
+
+    glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+}
+
+/******************************Public*Routine******************************\
+* ContinueClear
+*
+* Advance the dissolve by one step.  Returns TRUE when the dissolve is
+* complete (all rectangles cleared).
+*
+\**************************************************************************/
+
+BOOL SS_DIGITAL_DISSOLVE_CLEAR::
+ContinueClear()
+{
+    if( dissolveTotal == 0 || !orderBuf )
+        return TRUE;
+
+    int newEnd = dissolveCount + dissolveStep;
+    if( newEnd > dissolveTotal )
+        newEnd = dissolveTotal;
+
+    glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+    glEnable( GL_SCISSOR_TEST );
+
+    // Re-clear ALL previously cleared rects so both back buffers stay in sync
+    for( int i = 0; i < dissolveCount; i++ ) {
+        int idx = orderBuf[i];
+        glScissor( (idx % dissolveXdim) * dissolveSize,
+                   (idx / dissolveXdim) * dissolveSize,
+                   dissolveSize, dissolveSize );
+        glClear( GL_COLOR_BUFFER_BIT );
+    }
+
+    // Clear the new rects for this step
+    for( int i = dissolveCount; i < newEnd; i++ ) {
+        int idx = orderBuf[i];
+        glScissor( (idx % dissolveXdim) * dissolveSize,
+                   (idx / dissolveXdim) * dissolveSize,
+                   dissolveSize, dissolveSize );
+        glClear( GL_COLOR_BUFFER_BIT );
+    }
+
+    dissolveCount = newEnd;
+
+    glDisable( GL_SCISSOR_TEST );
+    glFlush();
+
+    return ( dissolveCount >= dissolveTotal );
 }
 
 /******************************Public*Routine******************************\
