@@ -185,7 +185,7 @@ NORMAL_STATE::ChooseJointType( )
             return BALL_JOINT;
         case EITHER:
             // draw a teapot once in a blue moon
-            if( ss_iRand(1000) == BLUE_MOON )
+            if( ss_iRand(iTeapotOdds) == 0 )
                 return( TEAPOT );
         default:
             // otherwise an elbow or a ball (1/3 ball)

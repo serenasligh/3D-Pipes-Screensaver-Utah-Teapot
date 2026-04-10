@@ -27,6 +27,11 @@ extern int gnTextures;
 extern BOOL  bFlexMode;
 extern BOOL  bMultiPipes;
 
+// Teapot frequency: 1 = every joint, 2000 = very rare; default 1000
+extern int   iTeapotOdds;
+// Pipe speed: 1 = slowest, 10 = fastest; default 5
+extern int   iPipeSpeed;
+
 extern void getIniSettings(void);
 
 
@@ -46,6 +51,8 @@ enum {
 
 #define IDS_FLEX                1020
 #define IDS_MULTIPIPES          1021
+#define IDS_TEAPOTODDS          1022
+#define IDS_PIPESPEED           1023
 
 // should get rid of OFFSET...
 #define IDS_TEXTURE_COUNT       1029
@@ -78,6 +85,14 @@ enum {
 #define IDC_STATIC_TESS_MAX     2005
 #define IDC_STATIC_TESS_GRP     2006
 #define IDC_STATIC_TEXQUAL_GRP  2007
+#define IDC_SLIDER_TEAPOT_ODDS  2008
+#define IDC_SLIDER_SPEED        2009
+#define IDC_STATIC_TEAPOT_GRP  2010
+#define IDC_STATIC_TEAPOT_MIN  2011
+#define IDC_STATIC_TEAPOT_MAX  2012
+#define IDC_STATIC_SPEED_GRP   2013
+#define IDC_STATIC_SPEED_MIN   2014
+#define IDC_STATIC_SPEED_MAX   2015
 
 #define IDC_RADIO_SINGLE_PIPE       3000
 #define IDC_RADIO_MULTIPLE_PIPES    3001

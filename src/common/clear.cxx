@@ -189,8 +189,8 @@ CalibrateClear( int width, int height, float fClearTime )
     factor = fClearTime / elapsed;
     idealNRects = (int) (factor * (float)nRects);
     rectSize = (int) (sqrt( (double)(width*height) / (double)idealNRects ) + 0.5);
-    if( rectSize == 0 )
-        rectSize = 1;
+    if( rectSize < 16 )
+        rectSize = 16;  // prevent millions of glFlush() calls on modern GPUs
 
     return rectSize;
 }
@@ -278,13 +278,13 @@ Clear( int width, int height, int size )
         // clear the x,y rect
         glScissor( (i % xdim)*size, (i / xdim)*size, size, size );
         glClear( GL_COLOR_BUFFER_BIT );
-        glFlush();
 
         rectBuf[i] = TRUE; // mark as taken
         count--;
     }
 
     glDisable( GL_SCISSOR_TEST );
+    glFinish(); // flush everything once at the end
 
     return TRUE;
 }
