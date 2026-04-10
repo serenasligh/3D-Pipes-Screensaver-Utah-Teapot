@@ -5,6 +5,10 @@
 *
 * Copyright (c) 1995 Microsoft Corporation
 *
+* Settings persistence: Originally used WritePrivateProfileString / GetPrivateProfileInt
+* with "%WINDIR%\control.ini", which silently fails on Windows Vista+ without
+* administrator rights.  Replaced with proper Windows Registry (HKCU) storage.
+*
 \**************************************************************************/
 
 #include <stdio.h>
@@ -15,147 +19,175 @@
 #include <commctrl.h>
 #include "sscommon.h"
 
-#define BUF_SIZE 30
-static TCHAR  szSectName[BUF_SIZE];
+#define BUF_SIZE 64
+static TCHAR  szSectName[BUF_SIZE];  // e.g. "Screen Saver.3DPipes"
 static TCHAR  szItemName[BUF_SIZE];
-static TCHAR  szFname[BUF_SIZE];
-static TCHAR  szTmp[BUF_SIZE];
 static HINSTANCE hInstance = 0;
+
+// Registry base path; szSectName is appended as the subkey name.
+#define REGISTRY_BASE TEXT("Software\\Microsoft\\ScreenSavers\\")
+
+/******************************Public*Routine******************************\
+* OpenRegKey
+*
+* Opens (or creates for writing) the screensaver settings key in HKCU.
+* Caller must close the returned handle with RegCloseKey().
+* Returns NULL on failure.
+\**************************************************************************/
+
+static HKEY OpenRegKey( BOOL forWrite )
+{
+    TCHAR keyPath[128];
+    HKEY hKey = NULL;
+    LONG res;
+
+    wsprintf( keyPath, TEXT("%s%s"), REGISTRY_BASE, szSectName );
+
+    if( forWrite ) {
+        DWORD disp;
+        res = RegCreateKeyEx( HKEY_CURRENT_USER, keyPath, 0, NULL,
+                              REG_OPTION_NON_VOLATILE, KEY_SET_VALUE,
+                              NULL, &hKey, &disp );
+    } else {
+        res = RegOpenKeyEx( HKEY_CURRENT_USER, keyPath, 0,
+                            KEY_QUERY_VALUE, &hKey );
+    }
+
+    return (res == ERROR_SUCCESS) ? hKey : NULL;
+}
 
 /******************************Public*Routine******************************\
 * ss_RegistrySetup
 *
-* Setup for registry access
-*
+* Setup for registry access — loads the section name from resources.
 \**************************************************************************/
 
 BOOL ss_RegistrySetup( HINSTANCE hinst, int section, int file )
 {
-    if( LoadString(hInstance, section, szSectName, BUF_SIZE) &&
-        LoadString(hInstance, file, szFname, BUF_SIZE) ) 
-    {
-        hInstance = hinst;
-        return TRUE;
-    }
-    return FALSE;
+    // 'file' parameter was for the old INI approach; ignored now.
+    hInstance = hinst;
+    return LoadString( hInstance, section, szSectName, BUF_SIZE ) != 0;
 }
-
 
 /******************************Public*Routine******************************\
 * ss_GetRegistryInt
-*
-* Retrieve integer value from registry
-*
 \**************************************************************************/
 
-int  ss_GetRegistryInt( int name, int iDefault )
+int ss_GetRegistryInt( int name, int iDefault )
 {
-    if( LoadString( hInstance, name, szItemName, BUF_SIZE ) ) {
-        return GetPrivateProfileInt(szSectName, szItemName, iDefault, szFname);
+    HKEY hKey;
+    DWORD type, value, size = sizeof(DWORD);
+
+    if( !LoadString( hInstance, name, szItemName, BUF_SIZE ) )
+        return iDefault;
+
+    hKey = OpenRegKey( FALSE );
+    if( !hKey )
+        return iDefault;
+
+    if( RegQueryValueEx( hKey, szItemName, NULL, &type,
+                         (BYTE *)&value, &size ) == ERROR_SUCCESS
+        && type == REG_DWORD ) {
+        RegCloseKey( hKey );
+        return (int)value;
     }
-    return 0;
+
+    RegCloseKey( hKey );
+    return iDefault;
 }
 
 /******************************Public*Routine******************************\
 * ss_GetRegistryString
-*
-* Retrieve string from registry
-*
 \**************************************************************************/
 
-void ss_GetRegistryString( int name, LPTSTR lpDefault, LPTSTR lpDest, 
-                           int bufSize )
+void ss_GetRegistryString( int name, LPTSTR lpDefault, LPTSTR lpDest,
+                            int bufSize )
 {
-    if( LoadString( hInstance, name, szItemName, BUF_SIZE ) ) {
-        GetPrivateProfileString(szSectName, szItemName, lpDefault, lpDest,
-                                bufSize, szFname);
-    }
+    HKEY hKey;
+    DWORD type;
+    DWORD size = (DWORD)(bufSize * sizeof(TCHAR));
+
+    if( lpDefault )
+        lstrcpyn( lpDest, lpDefault, bufSize );
+    else if( bufSize > 0 )
+        lpDest[0] = TEXT('\0');
+
+    if( !LoadString( hInstance, name, szItemName, BUF_SIZE ) )
+        return;
+
+    hKey = OpenRegKey( FALSE );
+    if( !hKey )
+        return;
+
+    RegQueryValueEx( hKey, szItemName, NULL, &type, (BYTE *)lpDest, &size );
+    RegCloseKey( hKey );
 }
 
 /******************************Public*Routine******************************\
 * ss_WriteRegistryInt
-*
-* Write integer value to registry
-*
 \**************************************************************************/
 
 void ss_WriteRegistryInt( int name, int iVal )
 {
-    if( LoadString(hInstance, name, szItemName, BUF_SIZE) ) {
-        wsprintf(szTmp, TEXT("%ld"), iVal);
-        WritePrivateProfileString(szSectName, szItemName, szTmp, szFname);
-    }
+    HKEY hKey;
+    DWORD value = (DWORD)iVal;
+
+    if( !LoadString( hInstance, name, szItemName, BUF_SIZE ) )
+        return;
+
+    hKey = OpenRegKey( TRUE );
+    if( !hKey )
+        return;
+
+    RegSetValueEx( hKey, szItemName, 0, REG_DWORD,
+                   (BYTE *)&value, sizeof(DWORD) );
+    RegCloseKey( hKey );
 }
 
 /******************************Public*Routine******************************\
 * ss_WriteRegistryString
-*
-* Write string value to registry
-*
 \**************************************************************************/
 
 void ss_WriteRegistryString( int name, LPTSTR lpString )
 {
-    if( LoadString(hInstance, name, szItemName, BUF_SIZE) ) {
-        WritePrivateProfileString(szSectName, szItemName, lpString, szFname);
-    }
+    HKEY hKey;
+
+    if( !lpString )
+        return;
+    if( !LoadString( hInstance, name, szItemName, BUF_SIZE ) )
+        return;
+
+    hKey = OpenRegKey( TRUE );
+    if( !hKey )
+        return;
+
+    RegSetValueEx( hKey, szItemName, 0, REG_SZ, (BYTE *)lpString,
+                   (DWORD)((lstrlen(lpString) + 1) * sizeof(TCHAR)) );
+    RegCloseKey( hKey );
 }
 
 /******************************Public*Routine******************************\
-* GetTrackbarPos
-*
-* Get the current position of a common control trackbar
+* ss_GetTrackbarPos
 \**************************************************************************/
 
-int
-ss_GetTrackbarPos( HWND hDlg, int item )
+int ss_GetTrackbarPos( HWND hDlg, int item )
 {
-    return 
-        SendDlgItemMessage( 
-            hDlg, 
-            item,
-            TBM_GETPOS, 
-            0,
-            0
-        );
+    return (int)SendDlgItemMessage( hDlg, item, TBM_GETPOS, 0, 0 );
 }
 
 /******************************Public*Routine******************************\
-* SetupTrackbar
-*
-* Setup a common control trackbar
+* ss_SetupTrackbar
 \**************************************************************************/
 
-void
-ss_SetupTrackbar( HWND hDlg, int item, int lo, int hi, int lineSize, 
-                  int pageSize, int pos )
+void ss_SetupTrackbar( HWND hDlg, int item, int lo, int hi, int lineSize,
+                       int pageSize, int pos )
 {
-    SendDlgItemMessage( 
-        hDlg, 
-        item,
-        TBM_SETRANGE, 
-        (WPARAM) TRUE, 
-        (LPARAM) MAKELONG( lo, hi )
-    );
-    SendDlgItemMessage( 
-        hDlg, 
-        item,
-        TBM_SETPOS, 
-        (WPARAM) TRUE, 
-        (LPARAM) pos
-    );
-    SendDlgItemMessage( 
-        hDlg, 
-        item,
-        TBM_SETPAGESIZE, 
-        (WPARAM) 0,
-        (LPARAM) pageSize 
-    );
-    SendDlgItemMessage( 
-        hDlg, 
-        item,
-        TBM_SETLINESIZE, 
-        (WPARAM) 0,
-        (LPARAM) lineSize
-    );
+    SendDlgItemMessage( hDlg, item, TBM_SETRANGE,
+                        (WPARAM)TRUE, (LPARAM)MAKELONG(lo, hi) );
+    SendDlgItemMessage( hDlg, item, TBM_SETPOS,
+                        (WPARAM)TRUE, (LPARAM)pos );
+    SendDlgItemMessage( hDlg, item, TBM_SETPAGESIZE,
+                        (WPARAM)0, (LPARAM)pageSize );
+    SendDlgItemMessage( hDlg, item, TBM_SETLINESIZE,
+                        (WPARAM)0, (LPARAM)lineSize );
 }

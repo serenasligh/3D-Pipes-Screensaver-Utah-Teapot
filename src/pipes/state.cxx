@@ -673,11 +673,25 @@ STATE::DrawValidate()
 *
 \**************************************************************************/
 
-void 
+void
 STATE::Draw(void *data)
 {
     int nKilledThreads = 0;
     BOOL bChooseNewLead = FALSE;
+
+    // Speed control:
+    //   iPipeSpeed 1-4  → draw only every (6-speed) frames (slow)
+    //   iPipeSpeed 5    → draw once per frame (default)
+    //   iPipeSpeed 6-10 → draw (speed-4) segments per thread per frame (fast)
+    {
+        static int sFrameSkip = 0;
+        if( iPipeSpeed < 5 ) {
+            int interval = 6 - iPipeSpeed; // 5,4,3,2,1 for speeds 1,2,3,4
+            if( ++sFrameSkip < interval )
+                return;
+            sFrameSkip = 0;
+        }
+    }
 
     // Validate the draw state
 
@@ -727,13 +741,16 @@ STATE::Draw(void *data)
         ChooseNewLeadPipe();
     }
 
-    // Draw each pipe
-
-    for( i = 0, pThread = drawThreads; i < nDrawThreads; i++, pThread++ ) {  // NOLINT
-        pThread->DrawPipe();
+    // Draw each pipe — call DrawPipe() extra times for faster speeds (6-10)
+    {
+        int segsPerThread = (iPipeSpeed > 5) ? (iPipeSpeed - 4) : 1;
+        for( i = 0, pThread = drawThreads; i < nDrawThreads; i++, pThread++ ) {
+            for( int s = 0; s < segsPerThread; s++ )
+                pThread->DrawPipe();
 #ifdef DO_TIMING
-        pipeCount++;
+            pipeCount++;
 #endif
+        }
     }
 
     glFlush();

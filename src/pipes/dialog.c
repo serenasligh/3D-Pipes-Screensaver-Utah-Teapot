@@ -28,6 +28,8 @@
 
 BOOL bFlexMode;
 BOOL bMultiPipes;
+int  iTeapotOdds = 1000;  // 1/N chance per joint; 1=always, 2000=very rare
+int  iPipeSpeed  = 5;     // 1=slowest ... 10=fastest
 
 // ulJointType controls the style of the elbows.
 
@@ -94,6 +96,12 @@ getIniSettings()
 
         bMultiPipes = ss_GetRegistryInt( IDS_MULTIPIPES, 0 );
 
+        iTeapotOdds = ss_GetRegistryInt( IDS_TEAPOTODDS, 1000 );
+        SS_CLAMP_TO_RANGE2( iTeapotOdds, 1, 2000 );
+
+        iPipeSpeed = ss_GetRegistryInt( IDS_PIPESPEED, 5 );
+        SS_CLAMP_TO_RANGE2( iPipeSpeed, 1, 10 );
+
         // Get any textures
 
 #ifndef NEW_TEXTURE
@@ -144,6 +152,10 @@ static void saveIniSettings(HWND hDlg)
                     ss_GetTrackbarPos(hDlg, DLG_SETUP_TESSEL) );
         ss_WriteRegistryInt( IDS_FLEX, bFlexMode );
         ss_WriteRegistryInt( IDS_MULTIPIPES, bMultiPipes );
+        ss_WriteRegistryInt( IDS_TEAPOTODDS,
+                    ss_GetTrackbarPos(hDlg, IDC_SLIDER_TEAPOT_ODDS) );
+        ss_WriteRegistryInt( IDS_PIPESPEED,
+                    ss_GetTrackbarPos(hDlg, IDC_SLIDER_SPEED) );
 #ifndef NEW_TEXTURE
         ss_WriteRegistryString( IDS_TEXTURE, gTexFile[0].szPathName );
         ss_WriteRegistryInt( IDS_TEXTURE_FILE_OFFSET, gTexFile[0].nOffset );
@@ -176,6 +188,11 @@ setupDialogControls(HWND hDlg)
 
     pos = (int)(fTesselFact * 100.0f);
     ss_SetupTrackbar( hDlg, DLG_SETUP_TESSEL, 0, 200, 1, 10, pos );
+
+    ss_SetupTrackbar( hDlg, IDC_SLIDER_TEAPOT_ODDS, 1, 2000, 1, 100,
+                      iTeapotOdds );
+    ss_SetupTrackbar( hDlg, IDC_SLIDER_SPEED, 1, 10, 1, 1,
+                      iPipeSpeed );
 
     // setup jointType combo box
     idsJointType = IDS_JOINT_ELBOW;

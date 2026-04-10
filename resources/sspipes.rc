@@ -65,6 +65,16 @@
 #define DLG_SETUP_TEXTURE       2002
 #define IDC_STATIC_TESS_GRP     2006
 #define IDC_STATIC_TEXQUAL_GRP  2007
+#define IDC_SLIDER_TEAPOT_ODDS  2008
+#define IDC_SLIDER_SPEED        2009
+#define IDC_STATIC_TEAPOT_GRP  2010
+#define IDC_STATIC_TEAPOT_MIN  2011
+#define IDC_STATIC_TEAPOT_MAX  2012
+#define IDC_STATIC_SPEED_GRP   2013
+#define IDC_STATIC_SPEED_MIN   2014
+#define IDC_STATIC_SPEED_MAX   2015
+#define IDS_TEAPOTODDS          1022
+#define IDS_PIPESPEED           1023
 #define IDC_RADIO_SINGLE_PIPE   3000
 #define IDC_RADIO_MULTIPLE_PIPES 3001
 #define IDC_RADIO_NORMAL        3100
@@ -135,6 +145,8 @@ BEGIN
     IDS_TEXQUAL             "TextureQuality"
     IDS_FLEX                "Flex"
     IDS_MULTIPIPES          "MultiPipes"
+    IDS_TEAPOTODDS          "TeapotOdds"
+    IDS_PIPESPEED           "PipeSpeed"
 END
 
 STRINGTABLE PRELOAD DISCARDABLE
@@ -185,7 +197,7 @@ IDB_DEFTEX   100   DISCARDABLE   "STRIPE.BMP"
 // Setup dialog
 // -----------------------------------------------------------------------
 
-DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 111
+DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 170
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "3D Pipes Setup"
 FONT 8, "MS Shell Dlg"
@@ -216,4 +228,14 @@ BEGIN
     CONTROL         "Te&xtured",IDC_RADIO_TEX,"Button",BS_AUTORADIOBUTTON |
                     WS_GROUP | WS_TABSTOP,130,85,48,14
     PUSHBUTTON      "&Choose Texture...",DLG_SETUP_TEXTURE,184,85,66,14
+    GROUPBOX        "Teapot Frequency",IDC_STATIC_TEAPOT_GRP,5,112,155,50
+    LTEXT           "Common",IDC_STATIC_TEAPOT_MIN,15,125,35,7
+    RTEXT           "Rare",IDC_STATIC_TEAPOT_MAX,130,125,20,7
+    CONTROL         "Slider2",IDC_SLIDER_TEAPOT_ODDS,"msctls_trackbar32",
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,135,130,15
+    GROUPBOX        "Speed",IDC_STATIC_SPEED_GRP,165,112,155,50
+    LTEXT           "Slow",IDC_STATIC_SPEED_MIN,175,125,20,7
+    RTEXT           "Fast",IDC_STATIC_SPEED_MAX,290,125,20,7
+    CONTROL         "Slider3",IDC_SLIDER_SPEED,"msctls_trackbar32",
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,175,135,130,15
 END
