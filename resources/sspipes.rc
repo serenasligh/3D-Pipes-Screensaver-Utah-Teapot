@@ -73,22 +73,36 @@
 #define IDC_STATIC_SPEED_GRP   2013
 #define IDC_STATIC_SPEED_MIN   2014
 #define IDC_STATIC_SPEED_MAX   2015
+#define IDC_SLIDER_DISSOLVE_TIME    2016
+#define IDC_SLIDER_DISSOLVE_RES     2017
+#define IDC_STATIC_DISSOLVE_GRP     2020
+#define IDC_STATIC_DISSOLVE_MIN     2021
+#define IDC_STATIC_DISSOLVE_MAX     2022
+#define IDC_STATIC_DISSOLVE_RES_MIN 2023
+#define IDC_STATIC_DISSOLVE_RES_MAX 2024
 #define IDS_TEAPOTODDS          1022
 #define IDS_PIPESPEED           1023
 #define IDS_TEAPOTENABLED       1024
-#define IDC_CHECK_TEAPOT        3200
+#define IDS_DISSOLVETIME        1025
+#define IDS_DISSOLVESMOOTH      1026
+#define IDS_DISSOLVERECT        1027
 #define IDC_RADIO_SINGLE_PIPE   3000
 #define IDC_RADIO_MULTIPLE_PIPES 3001
 #define IDC_RADIO_NORMAL        3100
 #define IDC_RADIO_FLEX          3101
+#define IDC_RADIO_TEAPOT        3102
 #define IDC_STATIC_JOINTTYPE    2106
 #define DLG_COMBO_JOINTTYPE     2200
 #define IDC_RADIO_SOLID         2111
 #define IDC_RADIO_TEX           2112
+#define IDC_RADIO_WIREFRAME     2113
+#define IDC_RADIO_TRANS         2114
 #define IDC_RADIO_TEXQUAL_DEFAULT 2121
 #define IDC_RADIO_TEXQUAL_HIGH  2122
 #define IDC_STATIC_TESS_MIN     2004
 #define IDC_STATIC_TESS_MAX     2005
+#define IDC_RADIO_DISSOLVE_SMOOTH      3202
+#define IDC_RADIO_DISSOLVE_PIXELATED   3203
 
 #define IDB_DEFTEX              99
 
@@ -150,6 +164,9 @@ BEGIN
     IDS_TEAPOTODDS          "TeapotOdds"
     IDS_PIPESPEED           "PipeSpeed"
     IDS_TEAPOTENABLED       "TeapotEnabled"
+    IDS_DISSOLVETIME        "DissolveTime"
+    IDS_DISSOLVESMOOTH      "DissolveSmooth"
+    IDS_DISSOLVERECT        "DissolveRectLog"
 END
 
 STRINGTABLE PRELOAD DISCARDABLE
@@ -198,49 +215,94 @@ IDB_DEFTEX   100   DISCARDABLE   "STRIPE.BMP"
 
 // -----------------------------------------------------------------------
 // Setup dialog
+//
+// Layout (all y-coordinates absolute):
+//   Row 1  y=  0 h=65 : Pipes + Pipe Style (Normal / Flex / Normal w/ Teapot)
+//   Row 2  y= 70 h=65 : Resolution + Surface Style (Solid / Textured / :3)
+//   Row 3  y=140 h=52 : Teapot Frequency + Speed
+//   Row 4  y=197 h=58 : Dissolve (Duration slider + Smooth/Pixelated + Res slider)
+//   Dialog total height = 260
 // -----------------------------------------------------------------------
 
-DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 185
+DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 260
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "3D Pipes Setup"
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,275,5,50,14,WS_GROUP
     PUSHBUTTON      "Cancel",IDCANCEL,275,25,50,14,WS_GROUP
+
+    // -----------------------------------------------------------------
+    // Row 1: Pipes (single/multiple) and Pipe Style (3 radios)
+    // -----------------------------------------------------------------
     GROUPBOX        "Pipes",-1,5,0,110,50
     CONTROL         "&Single",IDC_RADIO_SINGLE_PIPE,"Button",
-                    BS_AUTORADIOBUTTON,15,15,35,10
+                    BS_AUTORADIOBUTTON,15,12,35,10
     CONTROL         "&Multiple",IDC_RADIO_MULTIPLE_PIPES,"Button",
-                    BS_AUTORADIOBUTTON,15,30,40,10
-    GROUPBOX        "Pipe Style",-1,120,0,150,50
-    CONTROL         "&Traditional",IDC_RADIO_NORMAL,"Button",
-                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,130,15,55,10
-    LTEXT           "&Joint Type:",IDC_STATIC_JOINTTYPE,190,6,35,8
-    COMBOBOX        DLG_COMBO_JOINTTYPE,190,15,65,50,CBS_DROPDOWNLIST |
+                    BS_AUTORADIOBUTTON,15,27,40,10
+
+    GROUPBOX        "Pipe Style",-1,120,0,150,65
+    CONTROL         "&Normal",IDC_RADIO_NORMAL,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,130,12,40,10
+    LTEXT           "&Joint Type:",IDC_STATIC_JOINTTYPE,190,8,35,8
+    COMBOBOX        DLG_COMBO_JOINTTYPE,190,17,65,50,CBS_DROPDOWNLIST |
                     WS_VSCROLL | WS_GROUP | WS_TABSTOP
-    CONTROL         "&Flex",IDC_RADIO_FLEX,"Button",BS_AUTORADIOBUTTON |
-                    WS_GROUP | WS_TABSTOP,130,30,35,10
-    GROUPBOX        "&Resolution",IDC_STATIC_TESS_GRP,5,55,110,50
-    LTEXT           "Min",IDC_STATIC_TESS_MIN,15,70,30,7
-    RTEXT           "Max",IDC_STATIC_TESS_MAX,85,70,20,7
+    CONTROL         "&Flex",IDC_RADIO_FLEX,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,130,27,35,10
+    CONTROL         "Normal (w/ &Teapot)",IDC_RADIO_TEAPOT,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,130,42,80,10
+
+    // -----------------------------------------------------------------
+    // Row 2: Resolution and Surface Style (Solid / Textured / :3)
+    // -----------------------------------------------------------------
+    GROUPBOX        "&Resolution",IDC_STATIC_TESS_GRP,5,70,110,50
+    LTEXT           "Min",IDC_STATIC_TESS_MIN,15,83,30,7
+    RTEXT           "Max",IDC_STATIC_TESS_MAX,85,83,20,7
     CONTROL         "Slider1",DLG_SETUP_TESSEL,"msctls_trackbar32",
-                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,80,90,15
-    GROUPBOX        "Surface Style",-1,120,55,150,50,WS_GROUP
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,93,90,15
+
+    GROUPBOX        "Surface Style",-1,120,70,150,65,WS_GROUP
     CONTROL         "Soli&d",IDC_RADIO_SOLID,"Button",BS_AUTORADIOBUTTON |
-                    WS_GROUP | WS_TABSTOP,130,70,35,13
+                    WS_GROUP | WS_TABSTOP,130,83,35,13
     CONTROL         "Te&xtured",IDC_RADIO_TEX,"Button",BS_AUTORADIOBUTTON |
-                    WS_GROUP | WS_TABSTOP,130,85,48,14
-    PUSHBUTTON      "&Choose Texture...",DLG_SETUP_TEXTURE,184,85,66,14
-    GROUPBOX        "Teapot Frequency",IDC_STATIC_TEAPOT_GRP,5,112,155,50
-    LTEXT           "Common",IDC_STATIC_TEAPOT_MIN,15,125,35,7
-    RTEXT           "Rare",IDC_STATIC_TEAPOT_MAX,130,125,20,7
+                    WS_GROUP | WS_TABSTOP,130,98,48,14
+    PUSHBUTTON      "&Choose Texture...",DLG_SETUP_TEXTURE,184,98,66,14
+    CONTROL         ":3",IDC_RADIO_TRANS,"Button",BS_AUTORADIOBUTTON |
+                    WS_GROUP | WS_TABSTOP,130,115,25,10
+
+    // -----------------------------------------------------------------
+    // Row 3: Teapot Frequency and Speed
+    // -----------------------------------------------------------------
+    GROUPBOX        "Teapot Frequency",IDC_STATIC_TEAPOT_GRP,5,140,155,52
+    LTEXT           "Common",IDC_STATIC_TEAPOT_MIN,15,153,35,7
+    RTEXT           "Rare",IDC_STATIC_TEAPOT_MAX,130,153,20,7
     CONTROL         "Slider2",IDC_SLIDER_TEAPOT_ODDS,"msctls_trackbar32",
-                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,135,130,15
-    GROUPBOX        "Speed",IDC_STATIC_SPEED_GRP,165,112,155,50
-    LTEXT           "Slow",IDC_STATIC_SPEED_MIN,175,125,20,7
-    RTEXT           "Fast",IDC_STATIC_SPEED_MAX,290,125,20,7
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,163,130,15
+
+    GROUPBOX        "Speed",IDC_STATIC_SPEED_GRP,165,140,155,52
+    LTEXT           "Slow",IDC_STATIC_SPEED_MIN,175,153,20,7
+    RTEXT           "Fast",IDC_STATIC_SPEED_MAX,290,153,20,7
     CONTROL         "Slider3",IDC_SLIDER_SPEED,"msctls_trackbar32",
-                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,175,135,130,15
-    CONTROL         "&Enable Utah Teapot easter egg",IDC_CHECK_TEAPOT,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,5,168,170,12
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,175,163,130,15
+
+    // -----------------------------------------------------------------
+    // Row 4: Dissolve
+    //   Left  (x=15..130):  Duration slider  Instant → 8 sec
+    //   Right (x=140..315): Smooth / Pixelated radios
+    //                        Fine ←→ Coarse resolution slider (pixelated only)
+    // -----------------------------------------------------------------
+    GROUPBOX        "Dissolve",IDC_STATIC_DISSOLVE_GRP,5,197,320,58
+    LTEXT           "Instant",IDC_STATIC_DISSOLVE_MIN,15,209,30,7
+    RTEXT           "8 sec",IDC_STATIC_DISSOLVE_MAX,93,209,30,7
+    CONTROL         "Slider4",IDC_SLIDER_DISSOLVE_TIME,"msctls_trackbar32",
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,15,219,110,15
+
+    CONTROL         "&Smooth",IDC_RADIO_DISSOLVE_SMOOTH,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,140,209,50,10
+    CONTROL         "&Pixelated",IDC_RADIO_DISSOLVE_PIXELATED,"Button",
+                    BS_AUTORADIOBUTTON,140,222,60,10
+    LTEXT           "Fine",IDC_STATIC_DISSOLVE_RES_MIN,208,222,20,7
+    RTEXT           "Coarse",IDC_STATIC_DISSOLVE_RES_MAX,290,222,25,7
+    CONTROL         "Slider5",IDC_SLIDER_DISSOLVE_RES,"msctls_trackbar32",
+                    TBS_NOTICKS | WS_GROUP | WS_TABSTOP,208,232,112,15
 END

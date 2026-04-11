@@ -62,6 +62,9 @@ STATE::STATE( BOOL bFlexMode, BOOL bMultiPipes )
     else if( ulSurfStyle == SURFSTYLE_WIREFRAME ) {
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
     }
+    else if( ulSurfStyle == SURFSTYLE_TRANS ) {
+        LoadTransTexture();
+    }
    
     // Initialize GL state for the initial RC (sets texture state, so
     // (must come after LoadTextureFiles())
@@ -240,6 +243,74 @@ STATE::LoadTextureFiles( TEXFILE *pTexFile, int nTexFiles, TEX_RES *pTexRes )
     CalcTexRepFactors();
 
     return TRUE;
+}
+
+/******************************Public*Routine******************************\
+* LoadTransTexture
+*
+* Generate a procedural trans pride flag texture and upload it to GL.
+* The texture is 4 pixels wide × 256 pixels tall (RGB).  T coordinates
+* (circumferential) map five equal colour bands around the pipe:
+*   Blue (#5BCEFA), Pink (#F5A9B8), White (#FFFFFF), Pink, Blue.
+* With this orientation the stripes run lengthwise along every pipe.
+*
+\**************************************************************************/
+
+void
+STATE::LoadTransTexture()
+{
+    static const int W = 4, H = 256;
+
+    // Trans pride flag colours  (R, G, B)
+    static const unsigned char kBlue [3] = {  91, 190, 250 };  // #5BCEFA
+    static const unsigned char kPink [3] = { 245, 169, 184 };  // #F5A9B8
+    static const unsigned char kWhite[3] = { 255, 255, 255 };  // #FFFFFF
+
+    unsigned char *data = (unsigned char *) malloc( W * H * 3 );
+    if( !data )
+        return;
+
+    // Five equal stripes top-to-bottom in texture space (= around circumference)
+    for( int row = 0; row < H; row++ ) {
+        const unsigned char *c;
+        if     ( row <  52 ) c = kBlue;   // stripe 1 (bottom)
+        else if( row < 103 ) c = kPink;   // stripe 2
+        else if( row < 154 ) c = kWhite;  // stripe 3 (centre)
+        else if( row < 205 ) c = kPink;   // stripe 4
+        else                 c = kBlue;   // stripe 5 (top)
+
+        for( int col = 0; col < W; col++ ) {
+            int base = ( row * W + col ) * 3;
+            data[base+0] = c[0];
+            data[base+1] = c[1];
+            data[base+2] = c[2];
+        }
+    }
+
+    glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+
+    memset( &texture[0], 0, sizeof(TEXTURE) );
+    texture[0].width            = W;
+    texture[0].height           = H;
+    texture[0].format           = GL_RGB;
+    texture[0].components       = 3;
+    texture[0].data             = data;   // kept for non-texobj path
+    texture[0].origAspectRatio  = (float)H / (float)W;
+
+    if( gbTextureObjects ) {
+        glGenTextures( 1, &texture[0].texObj );
+        glBindTexture( GL_TEXTURE_2D, texture[0].texObj );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,   GL_REPEAT  );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,   GL_REPEAT  );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+        glTexImage2D( GL_TEXTURE_2D, 0, 3, W, H, 0,
+                      GL_RGB, GL_UNSIGNED_BYTE, data );
+    }
+
+    nTextures = 1;
+    bTexture  = TRUE;
+    CalcTexRepFactors();
 }
 
 /******************************Public*Routine******************************\
@@ -663,8 +734,13 @@ STATE::DrawValidate()
     // Intercept normal resets to run a multi-frame dissolve instead of
     // clearing the screen instantly.  Resize and startup resets still run
     // synchronously so the geometry change takes effect immediately.
-    if( (resetStatus & RESET_NORMAL_BIT) && !(resetStatus & RESET_RESIZE_BIT) ) {
-        ddClear.StartClear( view.winSize.width, view.winSize.height );
+    // When iDissolveTime == 0 the user wants an instant clear; fall through.
+    if( (resetStatus & RESET_NORMAL_BIT) && !(resetStatus & RESET_RESIZE_BIT)
+        && iDissolveTime > 0 ) {
+        float dissolveTime   = iDissolveTime / 10.0f;  // 0-80 → 0.0-8.0 s
+        int   manualRectSize = bDissolveSmooth ? 0 : (1 << iDissolveRectLog);
+        ddClear.StartClear( view.winSize.width, view.winSize.height,
+                            dissolveTime, manualRectSize );
         bDissolvingActive = TRUE;
         resetStatus &= ~RESET_NORMAL_BIT;  // Clear() will use fast path now
         return;  // don't FrameReset yet — dissolve runs in Draw()

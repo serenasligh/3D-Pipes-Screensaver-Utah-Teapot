@@ -121,8 +121,9 @@ private:
     void        ChooseNewLeadPipe();
     void        CompactThreadList();
     BOOL        LoadTextureFiles();
-    BOOL        LoadTextureFiles( TEXFILE *pTexFile, int nTexFiles, 
+    BOOL        LoadTextureFiles( TEXFILE *pTexFile, int nTexFiles,
                                   TEX_RES *pTexRes );
+    void        LoadTransTexture();  // generate procedural trans flag texture
     void        CalcTexRepFactors();
     int         CalcMaxPipesPerFrame();
 };
