@@ -19,6 +19,7 @@
 #include "sspipes.h"
 #include "npipe.h"
 #include "state.h"
+#include "dialog.h"
 
 
 static void align_notch( int newDir, int notch );
@@ -90,7 +91,8 @@ NORMAL_PIPE::Start( )
     if( newDir == DIR_NONE ) {
         // pipe is stuck at the start node, draw something
         status = PIPE_STUCK;
-        DrawTeapot();
+        if( bTeapotEnabled )
+            DrawTeapot();
         glPopMatrix();
         return;
     } else

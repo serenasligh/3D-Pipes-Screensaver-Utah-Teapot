@@ -75,6 +75,8 @@
 #define IDC_STATIC_SPEED_MAX   2015
 #define IDS_TEAPOTODDS          1022
 #define IDS_PIPESPEED           1023
+#define IDS_TEAPOTENABLED       1024
+#define IDC_CHECK_TEAPOT        3200
 #define IDC_RADIO_SINGLE_PIPE   3000
 #define IDC_RADIO_MULTIPLE_PIPES 3001
 #define IDC_RADIO_NORMAL        3100
@@ -147,6 +149,7 @@ BEGIN
     IDS_MULTIPIPES          "MultiPipes"
     IDS_TEAPOTODDS          "TeapotOdds"
     IDS_PIPESPEED           "PipeSpeed"
+    IDS_TEAPOTENABLED       "TeapotEnabled"
 END
 
 STRINGTABLE PRELOAD DISCARDABLE
@@ -197,7 +200,7 @@ IDB_DEFTEX   100   DISCARDABLE   "STRIPE.BMP"
 // Setup dialog
 // -----------------------------------------------------------------------
 
-DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 170
+DLG_SCRNSAVECONFIGURE DIALOG DISCARDABLE  28, 25, 332, 185
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "3D Pipes Setup"
 FONT 8, "MS Shell Dlg"
@@ -238,4 +241,6 @@ BEGIN
     RTEXT           "Fast",IDC_STATIC_SPEED_MAX,290,125,20,7
     CONTROL         "Slider3",IDC_SLIDER_SPEED,"msctls_trackbar32",
                     TBS_NOTICKS | WS_GROUP | WS_TABSTOP,175,135,130,15
+    CONTROL         "&Enable Utah Teapot easter egg",IDC_CHECK_TEAPOT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,5,168,170,12
 END

@@ -108,6 +108,7 @@ private:
     DRAW_THREAD drawThreads[MAX_DRAW_THREADS];
 
     int         resetStatus;
+    BOOL        bDissolvingActive;  // TRUE while multi-frame dissolve runs
 
     SS_DIGITAL_DISSOLVE_CLEAR ddClear;
     int         bCalibrateClear;

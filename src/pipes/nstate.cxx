@@ -175,20 +175,22 @@ NORMAL_STATE::Reset( )
 
 #define BLUE_MOON 153
 
-int 
+int
 NORMAL_STATE::ChooseJointType( )
 {
+    // When teapots are enabled, any joint style can produce one.
+    // (The original code only allowed teapots in EITHER/Mixed mode.)
+    if( bTeapotEnabled && ss_iRand(iTeapotOdds) == 0 )
+        return TEAPOT;
+
     switch( jointStyle ) {
         case ELBOWS:
             return ELBOW_JOINT;
         case BALLS:
             return BALL_JOINT;
         case EITHER:
-            // draw a teapot once in a blue moon
-            if( ss_iRand(iTeapotOdds) == 0 )
-                return( TEAPOT );
         default:
-            // otherwise an elbow or a ball (1/3 ball)
+            // an elbow or a ball (1/3 ball)
             if( !ss_iRand(3) )
                 return BALL_JOINT;
             else
