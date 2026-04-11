@@ -130,9 +130,9 @@ SS_DIGITAL_DISSOLVE_CLEAR()
     orderBufSize = 0;
     dissolveCount = 0;
     dissolveTotal = 0;
-    dissolveStep = 0;
     dissolveXdim = 0;
     dissolveSize = 0;
+    dissolveDuration = 0.0f;
 }
 
 /******************************Public*Routine******************************\
@@ -364,21 +364,22 @@ ValidateOrderBufSize( int nRects )
 \**************************************************************************/
 
 void SS_DIGITAL_DISSOLVE_CLEAR::
-StartClear( int width, int height )
+StartClear( int width, int height, float dissolveTime, int manualRectSize )
 {
-    int nRects = RectangleCount( width, height, rectSize );
+    int sz = (manualRectSize > 0) ? manualRectSize : rectSize;
+    if( sz <= 0 ) sz = 1;
+
+    int nRects = RectangleCount( width, height, sz );
     if( nRects <= 0 )
         return;
     if( !ValidateOrderBufSize( nRects ) )
         return;
 
-    dissolveXdim = SS_ROUND_UP( (float)width  / (float)rectSize );
-    dissolveSize = rectSize;
+    dissolveXdim = SS_ROUND_UP( (float)width / (float)sz );
+    dissolveSize = sz;
     dissolveTotal = nRects;
     dissolveCount = 0;
-    // target ~30 frames for the full dissolve
-    dissolveStep = (nRects + 29) / 30;
-    if( dissolveStep < 1 ) dissolveStep = 1;
+    dissolveDuration = dissolveTime;
 
     // Fill order array with 0..nRects-1, then Fisher-Yates shuffle
     for( int i = 0; i < nRects; i++ )
@@ -391,6 +392,7 @@ StartClear( int width, int height )
     }
 
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+    dissolveTimer.Start();  // begin timing from this moment
 }
 
 /******************************Public*Routine******************************\
@@ -407,7 +409,14 @@ ContinueClear()
     if( dissolveTotal == 0 || !orderBuf )
         return TRUE;
 
-    int newEnd = dissolveCount + dissolveStep;
+    // Timer-based progress: advance to wherever the clock says we should be
+    float elapsed = (float)(double)dissolveTimer.ElapsedTime();
+    float progress = (dissolveDuration > 0.0f) ? (elapsed / dissolveDuration) : 1.0f;
+    if( progress > 1.0f ) progress = 1.0f;
+
+    int newEnd = (int)(progress * dissolveTotal);
+    if( newEnd <= dissolveCount )
+        newEnd = dissolveCount + 1;  // always clear at least one new rect per frame
     if( newEnd > dissolveTotal )
         newEnd = dissolveTotal;
 

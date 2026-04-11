@@ -32,6 +32,12 @@ extern BOOL  bTeapotEnabled;  // TRUE = teapots can appear; FALSE = never
 extern int   iTeapotOdds;
 // Pipe speed: 1 = slowest, 100 = fastest; default 50 (= 1 segment/frame)
 extern int   iPipeSpeed;
+// Dissolve time: 0 = instant, 80 = 8.0 s; default 20 (= 2.0 s)
+extern int   iDissolveTime;
+// Dissolve style: TRUE = smooth (auto-calibrated fine dissolve), FALSE = pixelated
+extern BOOL  bDissolveSmooth;
+// Log2 of pixel block size for pixelated dissolve (0=1px, 7=128px); default 3 (=8px)
+extern int   iDissolveRectLog;
 
 extern void getIniSettings(void);
 
@@ -40,7 +46,8 @@ extern void getIniSettings(void);
 enum {
     SURFSTYLE_SOLID = 0,
     SURFSTYLE_TEX,
-    SURFSTYLE_WIREFRAME
+    SURFSTYLE_WIREFRAME,
+    SURFSTYLE_TRANS       // procedural trans-pride-flag texture (:3)
 };
 
 // Resource constants
@@ -55,8 +62,25 @@ enum {
 #define IDS_TEAPOTODDS          1022
 #define IDS_PIPESPEED           1023
 #define IDS_TEAPOTENABLED       1024
+#define IDS_DISSOLVETIME        1025
+#define IDS_DISSOLVESMOOTH      1026
+#define IDS_DISSOLVERECT        1027
 
-#define IDC_CHECK_TEAPOT        3200
+// Dissolve controls
+#define IDC_SLIDER_DISSOLVE_TIME    2016
+#define IDC_SLIDER_DISSOLVE_RES     2017
+#define IDC_STATIC_DISSOLVE_GRP     2020
+#define IDC_STATIC_DISSOLVE_MIN     2021
+#define IDC_STATIC_DISSOLVE_MAX     2022
+#define IDC_STATIC_DISSOLVE_RES_MIN 2023
+#define IDC_STATIC_DISSOLVE_RES_MAX 2024
+
+// Pipe style: "Normal (w/ Teapot)" radio replaces the old enable checkbox
+#define IDC_RADIO_TEAPOT        3102
+
+// Dissolve style radios
+#define IDC_RADIO_DISSOLVE_SMOOTH      3202
+#define IDC_RADIO_DISSOLVE_PIXELATED   3203
 
 // should get rid of OFFSET...
 #define IDS_TEXTURE_COUNT       1029
@@ -103,6 +127,7 @@ enum {
 
 #define IDC_RADIO_NORMAL        3100
 #define IDC_RADIO_FLEX          3101
+// IDC_RADIO_TEAPOT = 3102 defined above
 
 #define IDC_STATIC_JOINTTYPE       2106
 
@@ -122,6 +147,7 @@ enum {
 #define IDC_RADIO_SOLID         2111
 #define IDC_RADIO_TEX           2112
 #define IDC_RADIO_WIREFRAME     2113
+#define IDC_RADIO_TRANS         2114   // ":3" trans pride flag texture
 #define IDC_TO_SURFSTYLE(n)          ( (n) - IDC_RADIO_SOLID )
 
 

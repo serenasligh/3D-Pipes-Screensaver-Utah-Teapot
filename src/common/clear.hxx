@@ -11,6 +11,7 @@
 #define __clear_hxx__
 
 #include "sscommon.h"
+#include "util.hxx"
 
 
 class SS_DIGITAL_DISSOLVE_CLEAR {
@@ -20,7 +21,10 @@ public:
     int  CalibrateClear( int width, int height, float fClearTime );
     BOOL Clear( int width, int height, int size );
     BOOL Clear( int width, int height );
-    void StartClear( int width, int height );
+    // dissolveTime: target duration in seconds (0 = instant, skipped by Draw)
+    // manualRectSize: 0 = use auto-calibrated rectSize (smooth), >0 = explicit
+    //                 pixel block size (pixelated), e.g. 8 means 8x8 blocks
+    void StartClear( int width, int height, float dissolveTime, int manualRectSize = 0 );
     BOOL ContinueClear();
 private:
     BOOL *rectBuf;
@@ -29,13 +33,14 @@ private:
     BOOL ValidateBufSize( int nRects );
     int  RectangleCount( int width, int height, int size );
 
-    int  *orderBuf;      // pre-shuffled dissolve order (rect indices)
-    int  orderBufSize;   // allocated size of orderBuf
-    int  dissolveCount;  // number of rects cleared so far
-    int  dissolveTotal;  // total rects needed for full dissolve
-    int  dissolveStep;   // rects to add per ContinueClear call (~1/30 of total)
-    int  dissolveXdim;   // x-dimension of the rect grid
-    int  dissolveSize;   // rect pixel size used for this dissolve
+    int  *orderBuf;          // pre-shuffled dissolve order (rect indices)
+    int  orderBufSize;       // allocated size of orderBuf
+    int  dissolveCount;      // number of rects cleared so far
+    int  dissolveTotal;      // total rects needed for full dissolve
+    int  dissolveXdim;       // x-dimension of the rect grid
+    int  dissolveSize;       // rect pixel size used for this dissolve
+    float dissolveDuration;  // target dissolve time in seconds
+    SS_TIMER dissolveTimer;  // tracks elapsed time for progress calculation
     BOOL ValidateOrderBufSize( int nRects );
 };
 
