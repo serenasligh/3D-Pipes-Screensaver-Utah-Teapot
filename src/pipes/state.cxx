@@ -100,7 +100,12 @@ STATE::STATE( BOOL bFlexMode, BOOL bMultiPipes )
     nPipesDrawn = 0;
     // maxPipesPerFrame is set in Reset()
 
-    if( bFlexMode ) {
+    if( bAlternateMode ) {
+        // Both pipe types active — initialize both states so we can switch each frame
+        drawMode = DRAW_NORMAL;
+        pNState = new NORMAL_STATE( this );
+        pFState = new FLEX_STATE( this );
+    } else if( bFlexMode ) {
         drawMode = DRAW_FLEX;
         pFState = new FLEX_STATE( this );
         pNState = NULL;
@@ -494,13 +499,17 @@ STATE::FrameReset()
     // Reset the node states to empty
     nodes->Reset();
 
-    // Call any pipe-specific state resets, and get any recommended
-    // pipesPerFrame counts
-
-    if( pNState ) {
-        pNState->Reset();
+    // Alternate mode: randomly switch draw mode each frame reset
+    if( bAlternateMode ) {
+        // iSwitchOdds 1-5: "1 in N" chance of switching (1 = always switch)
+        if( iSwitchOdds <= 1 || ss_iRand(iSwitchOdds) == 0 )
+            drawMode = (drawMode == DRAW_NORMAL) ? DRAW_FLEX : DRAW_NORMAL;
     }
-    if( pFState ) {
+
+    // Call pipe-specific state reset for the active draw mode only
+    if( drawMode == DRAW_NORMAL && pNState ) {
+        pNState->Reset();
+    } else if( drawMode == DRAW_FLEX && pFState ) {
         pFState->Reset();
         xRot = ss_fRand(-5.0f, 5.0f);
         zRot = ss_fRand(-5.0f, 5.0f);
@@ -593,10 +602,10 @@ STATE::FrameReset()
             int index = PickRandomTexture( i, nTextures );
             pThread->SetTexture( &texture[index] );
 
-            // Flex pipes need to be informed of the texture, so they 
+            // Flex pipes need to be informed of the texture, so they
             // can dynamically calculate various texture params
-            if( pFState )
-                ((FLEX_PIPE *) pNewPipe)->SetTexParams( &texture[index], 
+            if( drawMode == DRAW_FLEX && pFState )
+                ((FLEX_PIPE *) pNewPipe)->SetTexParams( &texture[index],
                                                         &texRep[index] );
         }
 
@@ -738,7 +747,8 @@ STATE::DrawValidate()
     if( (resetStatus & RESET_NORMAL_BIT) && !(resetStatus & RESET_RESIZE_BIT)
         && iDissolveTime > 0 ) {
         float dissolveTime   = iDissolveTime / 10.0f;  // 0-80 → 0.0-8.0 s
-        int   manualRectSize = bDissolveSmooth ? 0 : (1 << iDissolveRectLog);
+        // Smooth: 1px blocks for pixel-level fade; Pixelated: explicit block size
+        int   manualRectSize = bDissolveSmooth ? 1 : (1 << iDissolveRectLog);
         ddClear.StartClear( view.winSize.width, view.winSize.height,
                             dissolveTime, manualRectSize );
         bDissolvingActive = TRUE;

@@ -38,6 +38,10 @@ extern int   iDissolveTime;
 extern BOOL  bDissolveSmooth;
 // Log2 of pixel block size for pixelated dissolve (0=1px, 7=128px); default 3 (=8px)
 extern int   iDissolveRectLog;
+// Alternate mode: randomly switches between Default and Flex each frame reset
+extern BOOL  bAlternateMode;
+// Switch odds for alternate mode: 1=always switch, N=1-in-N chance per frame; default 2
+extern int   iSwitchOdds;
 
 extern void getIniSettings(void);
 
@@ -65,6 +69,8 @@ enum {
 #define IDS_DISSOLVETIME        1025
 #define IDS_DISSOLVESMOOTH      1026
 #define IDS_DISSOLVERECT        1027
+#define IDS_ALTERNATEMODE       1011
+#define IDS_SWITCHODDS          1012
 
 // Dissolve controls
 #define IDC_SLIDER_DISSOLVE_TIME    2016
@@ -75,8 +81,8 @@ enum {
 #define IDC_STATIC_DISSOLVE_RES_MIN 2023
 #define IDC_STATIC_DISSOLVE_RES_MAX 2024
 
-// Pipe style: "Normal (w/ Teapot)" radio replaces the old enable checkbox
-#define IDC_RADIO_TEAPOT        3102
+// Pipe style: "Incl. Teapot" is now a checkbox; IDC_RADIO_TEAPOT retired
+#define IDC_CHECK_TEAPOT        3102
 
 // Dissolve style radios
 #define IDC_RADIO_DISSOLVE_SMOOTH      3202
@@ -127,11 +133,13 @@ enum {
 
 #define IDC_RADIO_NORMAL        3100
 #define IDC_RADIO_FLEX          3101
-// IDC_RADIO_TEAPOT = 3102 defined above
+// IDC_CHECK_TEAPOT = 3102 defined above (was IDC_RADIO_TEAPOT)
+#define IDC_CHECK_ALTERNATE     3103
 
 #define IDC_STATIC_JOINTTYPE       2106
 
 #define DLG_COMBO_JOINTTYPE     2200
+#define IDC_COMBO_SWITCHODDS    2300
 
 enum {
     JOINT_ELBOW=0,
@@ -147,7 +155,7 @@ enum {
 #define IDC_RADIO_SOLID         2111
 #define IDC_RADIO_TEX           2112
 #define IDC_RADIO_WIREFRAME     2113
-#define IDC_RADIO_TRANS         2114   // ":3" trans pride flag texture
+#define IDC_CHECK_TRANS         2114   // ":3" checkbox (was radio; now toggles trans on solid)
 #define IDC_TO_SURFSTYLE(n)          ( (n) - IDC_RADIO_SOLID )
 
 
