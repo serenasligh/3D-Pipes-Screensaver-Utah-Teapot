@@ -128,6 +128,9 @@ SS_DIGITAL_DISSOLVE_CLEAR()
     rectSize = SS_CLEAR_BASE_SIZE;
     orderBuf = NULL;
     orderBufSize = 0;
+    recheckBuf = NULL;
+    recheckBufSize = 0;
+    recheckCount = 0;
     dissolveCount = 0;
     dissolveTotal = 0;
     dissolveXdim = 0;
@@ -148,6 +151,8 @@ SS_DIGITAL_DISSOLVE_CLEAR::
         LocalFree( rectBuf );
     if( orderBuf )
         LocalFree( orderBuf );
+    if( recheckBuf )
+        LocalFree( recheckBuf );
 }
 
 /******************************Public*Routine******************************\
@@ -351,6 +356,21 @@ ValidateOrderBufSize( int nRects )
     return TRUE;
 }
 
+BOOL SS_DIGITAL_DISSOLVE_CLEAR::
+ValidateRecheckBufSize( int nRects )
+{
+    if( nRects > recheckBufSize ) {
+        int *r = (int *) LocalAlloc( LMEM_FIXED, sizeof(int) * nRects );
+        if( !r )
+            return FALSE;
+        if( recheckBuf )
+            LocalFree( recheckBuf );
+        recheckBuf = r;
+        recheckBufSize = nRects;
+    }
+    return TRUE;
+}
+
 /******************************Public*Routine******************************\
 * StartClear
 *
@@ -392,6 +412,7 @@ StartClear( int width, int height, float dissolveTime, int manualRectSize )
     }
 
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+    recheckCount = 0;       // no re-clears pending yet
     dissolveTimer.Start();  // begin timing from this moment
 }
 
@@ -420,25 +441,35 @@ ContinueClear()
     if( newEnd > dissolveTotal )
         newEnd = dissolveTotal;
 
+    int newCount = newEnd - dissolveCount;
+
+    // Grow recheck buffer if needed for the new batch
+    if( newCount > 0 && !ValidateRecheckBufSize( newCount ) )
+        return FALSE;
+
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
     glEnable( GL_SCISSOR_TEST );
 
-    // Re-clear ALL previously cleared rects so both back buffers stay in sync
-    for( int i = 0; i < dissolveCount; i++ ) {
-        int idx = orderBuf[i];
+    // Re-clear rects from the PREVIOUS frame only (double-buffer convergence, O(n)).
+    // Each rect is cleared in two consecutive frames: once when first scheduled,
+    // once here — after which it is fully black in both back buffers.
+    for( int i = 0; i < recheckCount; i++ ) {
+        int idx = recheckBuf[i];
         glScissor( (idx % dissolveXdim) * dissolveSize,
                    (idx / dissolveXdim) * dissolveSize,
                    dissolveSize, dissolveSize );
         glClear( GL_COLOR_BUFFER_BIT );
     }
 
-    // Clear the new rects for this step
+    // Clear new rects for this step and queue them for re-clear next frame
+    recheckCount = 0;
     for( int i = dissolveCount; i < newEnd; i++ ) {
         int idx = orderBuf[i];
         glScissor( (idx % dissolveXdim) * dissolveSize,
                    (idx / dissolveXdim) * dissolveSize,
                    dissolveSize, dissolveSize );
         glClear( GL_COLOR_BUFFER_BIT );
+        recheckBuf[recheckCount++] = idx;
     }
 
     dissolveCount = newEnd;
@@ -446,7 +477,9 @@ ContinueClear()
     glDisable( GL_SCISSOR_TEST );
     glFlush();
 
-    return ( dissolveCount >= dissolveTotal );
+    // Done when all rects cleared AND the final batch has been re-cleared
+    // (recheckCount will be 0 on the frame after the last batch)
+    return ( dissolveCount >= dissolveTotal && recheckCount == 0 );
 }
 
 /******************************Public*Routine******************************\

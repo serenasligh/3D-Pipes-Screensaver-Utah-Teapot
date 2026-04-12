@@ -35,6 +35,9 @@ private:
 
     int  *orderBuf;          // pre-shuffled dissolve order (rect indices)
     int  orderBufSize;       // allocated size of orderBuf
+    int  *recheckBuf;        // rects cleared last frame needing one more clear (double-buffer)
+    int  recheckBufSize;     // allocated size of recheckBuf
+    int  recheckCount;       // number of rects queued for re-clear this frame
     int  dissolveCount;      // number of rects cleared so far
     int  dissolveTotal;      // total rects needed for full dissolve
     int  dissolveXdim;       // x-dimension of the rect grid
@@ -42,6 +45,7 @@ private:
     float dissolveDuration;  // target dissolve time in seconds
     SS_TIMER dissolveTimer;  // tracks elapsed time for progress calculation
     BOOL ValidateOrderBufSize( int nRects );
+    BOOL ValidateRecheckBufSize( int nRects );
 };
 
 extern void DrawGdiRect( HDC hdc, HBRUSH hbr, RECT *pRect );

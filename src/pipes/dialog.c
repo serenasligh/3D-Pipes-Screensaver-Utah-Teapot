@@ -34,6 +34,8 @@ int  iPipeSpeed  = 50;    // 1=slowest ... 100=fastest; 50=default (1 seg/frame)
 int  iDissolveTime  = 20; // 0=instant, 80=8.0s; default 20 (=2.0s)
 BOOL bDissolveSmooth = TRUE;  // TRUE=smooth (auto-calibrated), FALSE=pixelated
 int  iDissolveRectLog = 3;   // log2 block size for pixelated: 0=1px,7=128px; default 3=8px
+BOOL bAlternateMode = FALSE;  // TRUE = randomly alternate Default/Flex each frame reset
+int  iSwitchOdds = 2;         // 1-in-N chance of mode switch per frame; default 2 (50%)
 
 // ulJointType controls the style of the elbows.
 
@@ -116,6 +118,11 @@ getIniSettings()
         iDissolveRectLog = ss_GetRegistryInt( IDS_DISSOLVERECT, 3 );
         SS_CLAMP_TO_RANGE2( iDissolveRectLog, 0, 7 );
 
+        bAlternateMode = ss_GetRegistryInt( IDS_ALTERNATEMODE, 0 );
+
+        iSwitchOdds = ss_GetRegistryInt( IDS_SWITCHODDS, 2 );
+        SS_CLAMP_TO_RANGE2( iSwitchOdds, 1, 5 );
+
         // Get any textures
 
 #ifndef NEW_TEXTURE
@@ -176,6 +183,8 @@ static void saveIniSettings(HWND hDlg)
         ss_WriteRegistryInt( IDS_DISSOLVESMOOTH, bDissolveSmooth );
         ss_WriteRegistryInt( IDS_DISSOLVERECT,
                     ss_GetTrackbarPos(hDlg, IDC_SLIDER_DISSOLVE_RES) );
+        ss_WriteRegistryInt( IDS_ALTERNATEMODE, bAlternateMode );
+        ss_WriteRegistryInt( IDS_SWITCHODDS, iSwitchOdds );
 #ifndef NEW_TEXTURE
         ss_WriteRegistryString( IDS_TEXTURE, gTexFile[0].szPathName );
         ss_WriteRegistryInt( IDS_TEXTURE_FILE_OFFSET, gTexFile[0].nOffset );
@@ -231,10 +240,24 @@ setupDialogControls(HWND hDlg)
     SendDlgItemMessage(hDlg, DLG_COMBO_JOINTTYPE, CB_SETCURSEL,
                        ulJointType, 0);
 
-    // Pipe Style: three mutually-exclusive radios
-    CheckDlgButton( hDlg, IDC_RADIO_NORMAL,  (!bFlexMode && !bTeapotEnabled) );
-    CheckDlgButton( hDlg, IDC_RADIO_FLEX,    bFlexMode );
-    CheckDlgButton( hDlg, IDC_RADIO_TEAPOT,  (!bFlexMode && bTeapotEnabled) );
+    // Pipe Style: Default/Flex radios + Incl. Teapot + Alternate checkboxes
+    CheckDlgButton( hDlg, IDC_RADIO_NORMAL,     !bAlternateMode && !bFlexMode );
+    CheckDlgButton( hDlg, IDC_RADIO_FLEX,       !bAlternateMode && bFlexMode );
+    CheckDlgButton( hDlg, IDC_CHECK_TEAPOT,     bTeapotEnabled );
+    CheckDlgButton( hDlg, IDC_CHECK_ALTERNATE,  bAlternateMode );
+
+    // Switch Odds combo: "1 in 1" through "1 in 5"
+    {
+        TCHAR szBuf[32];
+        int k;
+        for( k = 1; k <= 5; k++ ) {
+            wsprintf( szBuf, "1 in %d", k );
+            SendDlgItemMessage( hDlg, IDC_COMBO_SWITCHODDS, CB_ADDSTRING, 0,
+                                (LPARAM) szBuf );
+        }
+        SendDlgItemMessage( hDlg, IDC_COMBO_SWITCHODDS, CB_SETCURSEL,
+                            iSwitchOdds - 1, 0 );
+    }
 
     // Dissolve style radios
     CheckDlgButton( hDlg, IDC_RADIO_DISSOLVE_SMOOTH,    bDissolveSmooth );
@@ -252,31 +275,49 @@ setupDialogControls(HWND hDlg)
 
 static void updateDialogControls(HWND hDlg)
 {
-    BOOL bTexture = (ulSurfStyle == SURFSTYLE_TEX);
-    // Teapot frequency controls active only when teapot mode is on
-    BOOL bTeapotActive = (!bFlexMode && bTeapotEnabled);
-    // Resolution slider active only in pixelated dissolve style
-    BOOL bPixelated = !bDissolveSmooth;
+    // Surface style flags
+    BOOL bSolidActive = (ulSurfStyle == SURFSTYLE_SOLID || ulSurfStyle == SURFSTYLE_TRANS);
+    BOOL bTexture     = (ulSurfStyle == SURFSTYLE_TEX);
+    // Pixelated dissolve resolution slider active only in pixelated mode
+    BOOL bPixelated   = !bDissolveSmooth;
+    // Incl. Teapot checkbox enabled unless Flex-only (not alternate) is active
+    BOOL bTeapotCtrlEnabled = !bFlexMode || bAlternateMode;
+    // Teapot frequency group enabled when teapot is enabled
+    BOOL bTeapotActive = bTeapotEnabled;
+    // Joint type enabled in non-Flex-only mode
+    BOOL bJointEnabled = !bFlexMode || bAlternateMode;
 
-    CheckDlgButton( hDlg, IDC_RADIO_SOLID,   ulSurfStyle == SURFSTYLE_SOLID );
-    CheckDlgButton( hDlg, IDC_RADIO_TEX,     ulSurfStyle == SURFSTYLE_TEX );
-    CheckDlgButton( hDlg, IDC_RADIO_TRANS,   ulSurfStyle == SURFSTYLE_TRANS );
+    // Surface style radios + :3 checkbox
+    CheckDlgButton( hDlg, IDC_RADIO_SOLID, bSolidActive );
+    CheckDlgButton( hDlg, IDC_RADIO_TEX,   bTexture );
+    CheckDlgButton( hDlg, IDC_CHECK_TRANS, ulSurfStyle == SURFSTYLE_TRANS );
+    // :3 checkbox: enabled only when Solid surface is selected
+    EnableWindow( GetDlgItem(hDlg, IDC_CHECK_TRANS), bSolidActive );
 
-    CheckDlgButton( hDlg, IDC_RADIO_NORMAL,  (!bFlexMode && !bTeapotEnabled) );
-    CheckDlgButton( hDlg, IDC_RADIO_FLEX,    bFlexMode );
-    CheckDlgButton( hDlg, IDC_RADIO_TEAPOT,  (!bFlexMode && bTeapotEnabled) );
+    // Pipe style radios and checkboxes
+    CheckDlgButton( hDlg, IDC_RADIO_NORMAL,     !bAlternateMode && !bFlexMode );
+    CheckDlgButton( hDlg, IDC_RADIO_FLEX,       !bAlternateMode && bFlexMode );
+    CheckDlgButton( hDlg, IDC_CHECK_TEAPOT,     bTeapotEnabled );
+    CheckDlgButton( hDlg, IDC_CHECK_ALTERNATE,  bAlternateMode );
+    // Default/Flex radios disabled when Alternate mode is on
+    EnableWindow( GetDlgItem(hDlg, IDC_RADIO_NORMAL), !bAlternateMode );
+    EnableWindow( GetDlgItem(hDlg, IDC_RADIO_FLEX),   !bAlternateMode );
+    // Incl. Teapot: grayed when Flex-only (not when alternate which uses both)
+    EnableWindow( GetDlgItem(hDlg, IDC_CHECK_TEAPOT), bTeapotCtrlEnabled );
+    // Switch Odds combo: only meaningful when Alternate is on
+    EnableWindow( GetDlgItem(hDlg, IDC_COMBO_SWITCHODDS), bAlternateMode );
 
     CheckDlgButton( hDlg, IDC_RADIO_SINGLE_PIPE,    !bMultiPipes );
     CheckDlgButton( hDlg, IDC_RADIO_MULTIPLE_PIPES, bMultiPipes );
 
-    // Joint type combo: enabled for Normal and Teapot modes (not Flex)
-    EnableWindow( GetDlgItem(hDlg, DLG_COMBO_JOINTTYPE),  !bFlexMode );
-    EnableWindow( GetDlgItem(hDlg, IDC_STATIC_JOINTTYPE), !bFlexMode );
+    // Joint type combo: disabled when Flex-only (no joint style in flex)
+    EnableWindow( GetDlgItem(hDlg, DLG_COMBO_JOINTTYPE),  bJointEnabled );
+    EnableWindow( GetDlgItem(hDlg, IDC_STATIC_JOINTTYPE), bJointEnabled );
 
     // "Choose Texture" button: only when Textured is selected
     EnableWindow( GetDlgItem(hDlg, DLG_SETUP_TEXTURE), bTexture );
 
-    // Teapot frequency group: only when in Normal (w/ Teapot) mode
+    // Teapot frequency group: enabled when Incl. Teapot checkbox is on
     EnableWindow( GetDlgItem(hDlg, IDC_STATIC_TEAPOT_GRP),  bTeapotActive );
     EnableWindow( GetDlgItem(hDlg, IDC_STATIC_TEAPOT_MIN),  bTeapotActive );
     EnableWindow( GetDlgItem(hDlg, IDC_STATIC_TEAPOT_MAX),  bTeapotActive );
@@ -321,10 +362,25 @@ BOOL ScreenSaverConfigureDialog(HWND hDlg, UINT message,
             switch (LOWORD(wParam))
             {
                 case IDC_RADIO_SOLID:
+                    // Keep trans mode if :3 checkbox is currently checked
+                    if( IsDlgButtonChecked(hDlg, IDC_CHECK_TRANS) == BST_CHECKED )
+                        ulSurfStyle = SURFSTYLE_TRANS;
+                    else
+                        ulSurfStyle = SURFSTYLE_SOLID;
+                    break;
                 case IDC_RADIO_TEX:
+                    ulSurfStyle = SURFSTYLE_TEX;
+                    break;
                 case IDC_RADIO_WIREFRAME:
-                case IDC_RADIO_TRANS:
-                    ulSurfStyle = IDC_TO_SURFSTYLE(LOWORD(wParam));
+                    ulSurfStyle = SURFSTYLE_WIREFRAME;
+                    break;
+
+                case IDC_CHECK_TRANS:
+                    // Toggle :3 (trans flag texture) on solid pipes
+                    if( IsDlgButtonChecked(hDlg, IDC_CHECK_TRANS) == BST_CHECKED )
+                        ulSurfStyle = SURFSTYLE_TRANS;
+                    else
+                        ulSurfStyle = SURFSTYLE_SOLID;
                     break;
 
                 case IDC_RADIO_TEXQUAL_DEFAULT:
@@ -334,14 +390,17 @@ BOOL ScreenSaverConfigureDialog(HWND hDlg, UINT message,
 
                 case IDC_RADIO_NORMAL:
                     bFlexMode = FALSE;
-                    bTeapotEnabled = FALSE;
                     break;
                 case IDC_RADIO_FLEX:
                     bFlexMode = TRUE;
                     break;
-                case IDC_RADIO_TEAPOT:
-                    bFlexMode = FALSE;
-                    bTeapotEnabled = TRUE;
+
+                case IDC_CHECK_TEAPOT:
+                    bTeapotEnabled = (IsDlgButtonChecked(hDlg, IDC_CHECK_TEAPOT) == BST_CHECKED);
+                    break;
+
+                case IDC_CHECK_ALTERNATE:
+                    bAlternateMode = (IsDlgButtonChecked(hDlg, IDC_CHECK_ALTERNATE) == BST_CHECKED);
                     break;
 
                 case IDC_RADIO_SINGLE_PIPE:
@@ -356,6 +415,18 @@ BOOL ScreenSaverConfigureDialog(HWND hDlg, UINT message,
                     break;
                 case IDC_RADIO_DISSOLVE_PIXELATED:
                     bDissolveSmooth = FALSE;
+                    break;
+
+                case IDC_COMBO_SWITCHODDS:
+                    switch( HIWORD(wParam) )
+                    {
+                        case CBN_SELCHANGE:
+                            iSwitchOdds = (int)SendDlgItemMessage(
+                                hDlg, IDC_COMBO_SWITCHODDS, CB_GETCURSEL, 0, 0) + 1;
+                            break;
+                        default:
+                            break;
+                    }
                     break;
 
                 case DLG_SETUP_TEXTURE:
