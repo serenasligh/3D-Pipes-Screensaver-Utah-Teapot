@@ -47,6 +47,11 @@ STATE::STATE( BOOL bFlexMode, BOOL bMultiPipes )
     resetStatus = RESET_STARTUP_BIT;
     bDissolvingActive = FALSE;
 
+    // smooth dissolve state
+    smoothPixels  = NULL;
+    smoothDuration = 0.0f;
+    smoothW = smoothH = 0;
+
     // Put initial hglrc in drawThreads[0]
     // This RC is also used for dlists and texture objects that are shared
     // by other RC's
@@ -102,7 +107,8 @@ STATE::STATE( BOOL bFlexMode, BOOL bMultiPipes )
 
     if( bAlternateMode ) {
         // Both pipe types active — initialize both states so we can switch each frame
-        drawMode = DRAW_NORMAL;
+        // Randomize starting mode so the first displayed style varies each run
+        drawMode = (ss_iRand(2) == 0) ? DRAW_NORMAL : DRAW_FLEX;
         pNState = new NORMAL_STATE( this );
         pFState = new FLEX_STATE( this );
     } else if( bFlexMode ) {
@@ -143,6 +149,11 @@ STATE::~STATE( )
         for( int i = 0; i < nTextures; i ++ ) {
             ss_DeleteTexture( &texture[i] );
         }
+    }
+
+    if( smoothPixels ) {
+        free( smoothPixels );
+        smoothPixels = NULL;
     }
 
     // Delete any RC's - should be done by ~THREAD, but since common lib
@@ -275,14 +286,12 @@ STATE::LoadTransTexture()
     if( !data )
         return;
 
-    // Five equal stripes top-to-bottom in texture space (= around circumference)
+    // Three equal bands around the pipe circumference: Blue / Pink / White
     for( int row = 0; row < H; row++ ) {
         const unsigned char *c;
-        if     ( row <  52 ) c = kBlue;   // stripe 1 (bottom)
-        else if( row < 103 ) c = kPink;   // stripe 2
-        else if( row < 154 ) c = kWhite;  // stripe 3 (centre)
-        else if( row < 205 ) c = kPink;   // stripe 4
-        else                 c = kBlue;   // stripe 5 (top)
+        if      ( row <  86 ) c = kBlue;   // band 1
+        else if ( row < 171 ) c = kPink;   // band 2
+        else                  c = kWhite;  // band 3
 
         for( int col = 0; col < W; col++ ) {
             int base = ( row * W + col ) * 3;
@@ -316,6 +325,97 @@ STATE::LoadTransTexture()
     nTextures = 1;
     bTexture  = TRUE;
     CalcTexRepFactors();
+}
+
+/******************************Public*Routine******************************\
+* StartSmoothDissolve
+*
+* Capture the current framebuffer into smoothPixels so DrawSmoothFade can
+* dim it to black frame-by-frame for a true luminosity fade.  Called once
+* at the beginning of each smooth dissolve.
+*
+\**************************************************************************/
+
+void
+STATE::StartSmoothDissolve()
+{
+    smoothW = view.winSize.width;
+    smoothH = view.winSize.height;
+
+    if( smoothPixels ) {
+        free( smoothPixels );
+        smoothPixels = NULL;
+    }
+
+    smoothPixels = (GLubyte *)malloc( smoothW * smoothH * 3 );
+    if( smoothPixels ) {
+        glPixelStorei( GL_PACK_ALIGNMENT, 1 );
+        // Single-buffer mode: read buffer is the visible front buffer
+        glReadPixels( 0, 0, smoothW, smoothH,
+                      GL_RGB, GL_UNSIGNED_BYTE, smoothPixels );
+    }
+
+    smoothTimer.Start();
+}
+
+/******************************Public*Routine******************************\
+* DrawSmoothFade
+*
+* Re-draw the captured framebuffer snapshot scaled by (1-fade) so that
+* fade=0.0 shows the original scene and fade=1.0 shows pure black.
+* Uses glPixelTransfer scale so no texture objects or extensions are needed.
+*
+\**************************************************************************/
+
+void
+STATE::DrawSmoothFade( float fade )
+{
+    if( !smoothPixels )
+        return;
+
+    float scale = 1.0f - fade;
+    if( scale < 0.0f ) scale = 0.0f;
+
+    // Set up a 2D ortho projection so glRasterPos2i(0,0) lands at the
+    // bottom-left corner of the viewport.
+    glMatrixMode( GL_PROJECTION );
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho( 0.0, (double)smoothW, 0.0, (double)smoothH, -1.0, 1.0 );
+    glMatrixMode( GL_MODELVIEW );
+    glPushMatrix();
+    glLoadIdentity();
+
+    glDisable( GL_DEPTH_TEST );
+    glDisable( GL_LIGHTING );
+    glDisable( GL_CULL_FACE );
+    if( bTexture ) glDisable( GL_TEXTURE_2D );
+
+    // Scale each channel; bias stays 0 so pure black comes out black
+    glPixelTransferf( GL_RED_SCALE,   scale );
+    glPixelTransferf( GL_GREEN_SCALE, scale );
+    glPixelTransferf( GL_BLUE_SCALE,  scale );
+    glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+
+    glRasterPos2i( 0, 0 );
+    glDrawPixels( smoothW, smoothH, GL_RGB, GL_UNSIGNED_BYTE, smoothPixels );
+
+    // Restore pixel transfer defaults
+    glPixelTransferf( GL_RED_SCALE,   1.0f );
+    glPixelTransferf( GL_GREEN_SCALE, 1.0f );
+    glPixelTransferf( GL_BLUE_SCALE,  1.0f );
+
+    glEnable( GL_DEPTH_TEST );
+    glEnable( GL_LIGHTING );
+    glEnable( GL_CULL_FACE );
+    if( bTexture ) glEnable( GL_TEXTURE_2D );
+
+    glMatrixMode( GL_PROJECTION );
+    glPopMatrix();
+    glMatrixMode( GL_MODELVIEW );
+    glPopMatrix();
+
+    glFlush();
 }
 
 /******************************Public*Routine******************************\
@@ -556,9 +656,15 @@ STATE::FrameReset()
             // Give this rc access to any dlists
             wglShareLists( shareRC, pThread->GetRC() );
         }
-        else
+        else {
             pThread->MakeRCCurrent();
-        
+            // In Alternate mode, switching between Normal and Flex can leave
+            // residual GL state (e.g. lighting disabled by Flex pipes).
+            // Re-initialise GL state so each mode starts from a clean slate.
+            if( bAlternateMode )
+                GLInit();
+        }
+
         // Set up the modeling view
 
         glLoadIdentity();
@@ -746,11 +852,17 @@ STATE::DrawValidate()
     // When iDissolveTime == 0 the user wants an instant clear; fall through.
     if( (resetStatus & RESET_NORMAL_BIT) && !(resetStatus & RESET_RESIZE_BIT)
         && iDissolveTime > 0 ) {
-        float dissolveTime   = iDissolveTime / 10.0f;  // 0-80 → 0.0-8.0 s
-        // Smooth: 1px blocks for pixel-level fade; Pixelated: explicit block size
-        int   manualRectSize = bDissolveSmooth ? 1 : (1 << iDissolveRectLog);
-        ddClear.StartClear( view.winSize.width, view.winSize.height,
-                            dissolveTime, manualRectSize );
+        float dissolveTime = iDissolveTime / 10.0f;  // 0-80 → 0.0-8.0 s
+        if( bDissolveSmooth ) {
+            // True luminosity fade: capture screen snapshot, then dim each frame
+            smoothDuration = dissolveTime;
+            StartSmoothDissolve();
+        } else {
+            // Pixelated dissolve: random rectangular blocks
+            int manualRectSize = (1 << iDissolveRectLog);
+            ddClear.StartClear( view.winSize.width, view.winSize.height,
+                                dissolveTime, manualRectSize );
+        }
         bDissolvingActive = TRUE;
         resetStatus &= ~RESET_NORMAL_BIT;  // Clear() will use fast path now
         return;  // don't FrameReset yet — dissolve runs in Draw()
@@ -776,13 +888,26 @@ STATE::Draw(void *data)
     int nKilledThreads = 0;
     BOOL bChooseNewLead = FALSE;
 
-    // Multi-frame dissolve: animate the transition over ~30 frames before
-    // starting the next batch of pipes.
+    // Multi-frame dissolve: animate the transition before starting new pipes.
     if( bDissolvingActive ) {
-        BOOL done = ddClear.ContinueClear();
-        if( done ) {
-            bDissolvingActive = FALSE;
-            FrameReset();  // now start the new frame of pipes
+        if( bDissolveSmooth ) {
+            // Luminosity fade: draw screen snapshot dimmed to current level
+            float elapsed = (float)smoothTimer.ElapsedTime();
+            float fade = (smoothDuration > 0.0f) ? (elapsed / smoothDuration) : 1.0f;
+            if( fade > 1.0f ) fade = 1.0f;
+            DrawSmoothFade( fade );
+            if( fade >= 1.0f ) {
+                // Fade complete — release snapshot and start next scene
+                if( smoothPixels ) { free( smoothPixels ); smoothPixels = NULL; }
+                bDissolvingActive = FALSE;
+                FrameReset();
+            }
+        } else {
+            BOOL done = ddClear.ContinueClear();
+            if( done ) {
+                bDissolvingActive = FALSE;
+                FrameReset();
+            }
         }
         return;
     }
