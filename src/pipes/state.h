@@ -113,6 +113,11 @@ private:
     SS_DIGITAL_DISSOLVE_CLEAR ddClear;
     int         bCalibrateClear;
 
+    GLubyte    *smoothPixels;    // screen snapshot for smooth luminosity fade
+    float       smoothDuration;  // target fade duration in seconds
+    int         smoothW, smoothH; // snapshot dimensions
+    SS_TIMER    smoothTimer;     // elapsed time tracker for smooth fade
+
     void        GLInit();
     void        DrawValidate();  // validation to do before each Draw
     void        ResetView();
@@ -126,6 +131,8 @@ private:
     void        LoadTransTexture();  // generate procedural trans flag texture
     void        CalcTexRepFactors();
     int         CalcMaxPipesPerFrame();
+    void        StartSmoothDissolve();
+    void        DrawSmoothFade( float fade );
 };
 
 #endif // __state_h__
